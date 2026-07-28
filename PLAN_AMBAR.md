@@ -101,6 +101,11 @@ Asistente de voz PWA multi-usuario, con personalidad, memoria persistente y capa
 ### Fase 8 — Backlog de herramientas adicionales
 - Jina Reader, Wolfram Alpha, OpenWeatherMap, GNews/NewsAPI — mismo patrón BYOK/tool, una a la vez
 
+## Estado
+
+- **Fase 0: validada en vivo** (2026-07-28). Proyecto Supabase `ambar` (ref `zrqcnykrrshpbauhhcef`, región `sa-east-1`). Registro probado end-to-end contra el backend real (signup crea el usuario, el trigger crea su fila en `perfiles`, login con email sin confirmar devuelve el error real de Supabase "Email not confirmed"). Repo en https://github.com/Raul-coder17/Ambar.
+- Password de la base de datos generado por Code durante el setup — **no está guardado en ningún archivo del repo**. Se lo pasé a Raúl en el chat de la sesión donde se creó; si se pierde, se resetea desde el dashboard de Supabase (Project Settings → Database).
+
 ## Decisiones técnicas — Fase 0
 
 - **Package manager:** npm (viene con el Node del sistema, sin justificación para pnpm/yarn todavía).
