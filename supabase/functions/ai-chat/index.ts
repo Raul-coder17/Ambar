@@ -45,8 +45,30 @@ const RPM_WINDOW_MS = 60_000
 
 // Base fija de la personalidad. Lo que sabe del usuario NO va acá: se le
 // agrega por request en `bloqueMemoria()`, porque cambia con cada charla.
-const SYSTEM_INSTRUCTION =
-  'Sos Ámbar, el asistente personal del usuario. Respondé siempre en español, de forma breve y clara.'
+//
+// La instrucción de buscar_en_internet vive acá (no en la description de la
+// tool) porque es una regla de CÓMO responder, no de cuándo llamar a la tool:
+// aplica igual aunque el modelo ya haya decidido buscar. Sin esto, la
+// tendencia observada era conformarse con el primer resultado y contestar
+// "no hay información oficial" cuando el dato sí estaba, solo que no salió en
+// la primera búsqueda.
+const SYSTEM_INSTRUCTION_BASE =
+  'Sos Ámbar, el asistente personal del usuario. Respondé siempre en español, de forma breve y clara.\n\n' +
+  'Cuando uses buscar_en_internet para preguntas sobre fechas, precios, lanzamientos o eventos recientes: ' +
+  'si los resultados de la primera búsqueda no responden la pregunta con confianza, hacé una segunda búsqueda ' +
+  'con la consulta reformulada (términos distintos, agregá el año actual) antes de concluir que no hay información. ' +
+  'No te rindas en el primer intento.'
+
+// Fecha del servidor en el momento del request, en español. Sin esto el
+// modelo asume el año de su corte de entrenamiento y puede, por ejemplo,
+// buscar o razonar sobre "el año actual" equivocado.
+function fechaActual(): string {
+  return new Date().toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
+}
+
+function systemInstructionBase(): string {
+  return `${SYSTEM_INSTRUCTION_BASE}\n\nHoy es ${fechaActual()}.`
+}
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -471,7 +493,7 @@ Deno.serve(async (req) => {
     })(),
   ])
 
-  const systemInstruction = SYSTEM_INSTRUCTION + bloqueMemoria(hechos, recuerdos)
+  const systemInstruction = systemInstructionBase() + bloqueMemoria(hechos, recuerdos)
   console.log(`[ai-chat] contexto: hechos=${hechos.length} recuerdos=${recuerdos.length} turnos=${contents.length}`)
 
   const declarations = toolDeclarations()

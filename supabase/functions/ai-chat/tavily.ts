@@ -11,7 +11,10 @@ const TAVILY_SEARCH_URL = 'https://api.tavily.com/search'
 const MAX_RESULTADOS = 5
 // Cada resultado se trunca: son varios por búsqueda y van al contexto de un
 // modelo flash-lite, no hace falta el artículo entero para que conteste.
-const MAX_LARGO_CONTENIDO = 500
+// 500 resultó demasiado corto: en la práctica cortaba el `content` de Tavily
+// antes del dato puntual (precio, fecha) que a veces viene más adelante en el
+// extracto, no al principio. 2000 da margen sin volverse el artículo entero.
+const MAX_LARGO_CONTENIDO = 2000
 
 export interface ResultadoBusqueda {
   titulo: string
@@ -34,7 +37,11 @@ export async function buscarEnInternet(apiKey: string, query: string): Promise<R
       },
       body: JSON.stringify({
         query,
-        search_depth: 'basic',
+        // 'advanced' hace mejor extracción de contenido que 'basic' (menos
+        // probable que se pierda un precio o una fecha puntual en el
+        // resumen). Cuesta más cuota por búsqueda, pero el free tier de
+        // Tavily (~1000/mes) da margen de sobra para este uso.
+        search_depth: 'advanced',
         max_results: MAX_RESULTADOS,
       }),
     })
