@@ -1,0 +1,180 @@
+// Lógica pura (sin I/O ni Deno.serve) de la memoria: cómo se arma el bloque de
+// contexto que va en la system instruction, cómo se recorta el historial y cómo
+// se sanean los args del `recordar_hecho` que emite Gemini. Se aísla acá por lo
+// mismo que `rpm.ts`: es la parte que se puede razonar y testear sin red.
+//
+// EL CAMBIO DE FONDO DE ESTA FASE
+//
+// Hasta Fase 1, cada request mandaba el historial COMPLETO de la conversación.
+// Eso no escala (la ventana se llena, y con flash-lite se paga en latencia y en
+// tokens de salida) y además se pierde entero al refrescar la página. Ahora el
+// contexto se arma con tres piezas de distinta naturaleza:
+//
+//   (a) HECHOS       — pocos, estables, van SIEMPRE. Definen con quién está
+//                      hablando el asistente. No se buscan: se mandan todos.
+//   (b) RECUERDOS    — muchos, viejos, van SÓLO los que se parecen a lo que el
+//                      usuario acaba de escribir (top-K por coseno). Es el RAG.
+//   (c) TURNOS       — los últimos N mensajes tal cual, para que el hilo de la
+//                      charla actual no se corte a mitad de una frase.
+//
+// (a) y (b) van en la system instruction, no en `contents`: son datos sobre el
+// usuario, no cosas que él haya dicho en este chat. Meterlos como turnos falsos
+// haría que el modelo los cite como si acabaran de decirse.
+
+export interface MensajeHistorial {
+  role: 'user' | 'assistant'
+  text: string
+}
+
+export interface Hecho {
+  hecho: string
+  categoria: string | null
+}
+
+export interface Recuerdo {
+  contenido: string
+  similitud: number
+}
+
+/** Cuántos recuerdos como mucho se recuperan por request. */
+export const TOP_K = 5
+
+/**
+ * Similitud coseno mínima para que un recuerdo entre al contexto.
+ *
+ * El top-K solo no alcanza: la búsqueda SIEMPRE devuelve los K más parecidos,
+ * aunque el más parecido no tenga nada que ver. Sin umbral, un "hola" arrastra
+ * cinco fragmentos al azar de charlas viejas y el modelo intenta hilarlos con
+ * lo que se le está preguntando. 0.6 es un punto de partida conservador para
+ * ajustar con uso real, no un número derivado de nada.
+ */
+export const UMBRAL_SIMILITUD = 0.6
+
+/**
+ * Cuántos mensajes recientes se mandan tal cual.
+ *
+ * 8 = unos 4 intercambios ida y vuelta. Lo que quede afuera no se pierde: ya
+ * está en memoria_vectorial y vuelve por RAG si viene al caso.
+ */
+export const TURNOS_RECIENTES = 8
+
+/** Largo máximo de un hecho. Un "hecho" que no entra acá es un resumen. */
+export const MAX_LARGO_HECHO = 300
+
+/**
+ * Recorta el historial a los últimos `max` mensajes.
+ *
+ * Después del recorte descarta los mensajes de asistente que hayan quedado al
+ * principio: Gemini espera que `contents` arranque con un turno del usuario, y
+ * un corte por cantidad puede dejar arriba la respuesta a una pregunta que ya
+ * no está.
+ */
+export function turnosRecientes(messages: MensajeHistorial[], max = TURNOS_RECIENTES): MensajeHistorial[] {
+  const utiles = messages.filter((m) => typeof m?.text === 'string' && m.text.trim().length > 0)
+  const recientes = utiles.slice(-max)
+  let desde = 0
+  while (desde < recientes.length && recientes[desde].role === 'assistant') desde++
+  return recientes.slice(desde)
+}
+
+/** Último mensaje del usuario: es el texto que se embebe para buscar recuerdos. */
+export function ultimoMensajeUsuario(messages: MensajeHistorial[]): string {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i]
+    if (m?.role === 'user' && typeof m.text === 'string' && m.text.trim()) return m.text.trim()
+  }
+  return ''
+}
+
+/** Descarta los recuerdos que la búsqueda devolvió pero que no vienen al caso. */
+export function filtrarRecuerdos(recuerdos: Recuerdo[], umbral = UMBRAL_SIMILITUD): Recuerdo[] {
+  return recuerdos.filter((r) => typeof r?.similitud === 'number' && r.similitud >= umbral && r.contenido?.trim())
+}
+
+/**
+ * Texto que se guarda como una unidad en memoria_vectorial: el intercambio
+ * completo, no cada mensaje por separado.
+ *
+ * Un embedding de "sí, dale" suelto no se parece a nada ni recupera nada útil.
+ * Con la pregunta y la respuesta juntas, el vector representa el TEMA que se
+ * tocó, que es lo que se quiere poder recuperar meses después.
+ */
+export function textoDelIntercambio(pregunta: string, respuesta: string): string {
+  return `Usuario: ${pregunta.trim()}\nÁmbar: ${respuesta.trim()}`
+}
+
+/**
+ * El bloque de memoria que se le agrega a la system instruction.
+ *
+ * Los hechos van con su texto exacto porque es el mismo texto que el modelo
+ * tiene que mandar en `reemplaza` cuando uno queda obsoleto (ver
+ * `normalizarArgsHecho`): lo que lee es la interfaz para lo que escribe.
+ *
+ * Devuelve '' si no hay nada — un encabezado "Lo que sabés del usuario" vacío
+ * es peor que nada: le sugiere al modelo que debería saber algo.
+ */
+export function bloqueMemoria(hechos: Hecho[], recuerdos: Recuerdo[]): string {
+  const partes: string[] = []
+
+  if (hechos.length > 0) {
+    const lineas = hechos.map((h) => (h.categoria ? `- ${h.hecho} (${h.categoria})` : `- ${h.hecho}`))
+    partes.push(
+      `Esto es lo que ya sabés del usuario. Usalo con naturalidad cuando venga al caso; no lo recites ni le avises que lo tenés anotado.\n${lineas.join('\n')}`,
+    )
+  }
+
+  if (recuerdos.length > 0) {
+    const lineas = recuerdos.map((r) => `- ${r.contenido.trim()}`)
+    partes.push(
+      `Fragmentos de conversaciones ANTERIORES con este usuario que se parecen a lo que acaba de escribir. Son recuerdos tuyos, no cosas que se hayan dicho recién: si los usás, hablá de ellos como algo que pasó antes. Si no vienen al caso, ignoralos.\n${lineas.join('\n')}`,
+    )
+  }
+
+  return partes.length > 0 ? `\n\n${partes.join('\n\n')}` : ''
+}
+
+// --- Saneado de los args de `recordar_hecho` --------------------------------
+
+export interface HechoPropuesto {
+  hecho: string
+  categoria: string | null
+  /** Texto exacto del hecho anterior que este viene a corregir, si lo hay. */
+  reemplaza: string | null
+}
+
+function str(v: unknown): string | undefined {
+  return typeof v === 'string' && v.trim() ? v.trim() : undefined
+}
+
+/**
+ * Normaliza lo que Gemini mandó en la function call. Mismo criterio que
+ * `actions.ts` de Organizador-IA: el enum de la declaración no es garantía de
+ * nada, el modelo puede mandar cualquier cosa, y lo que no se puede usar se
+ * degrada en vez de romper la escritura entera.
+ *
+ * Devuelve null si no hay un hecho aprovechable: sin `hecho` no hay nada que
+ * guardar, y uno larguísimo es un resumen de la charla disfrazado de hecho
+ * (para eso ya está memoria_vectorial).
+ */
+export function normalizarArgsHecho(args: Record<string, unknown>): HechoPropuesto | null {
+  const hecho = str(args.hecho)
+  if (!hecho || hecho.length > MAX_LARGO_HECHO) return null
+  const reemplaza = str(args.reemplaza)
+  return {
+    hecho,
+    categoria: str(args.categoria)?.toLowerCase() ?? null,
+    // Un `reemplaza` idéntico al hecho nuevo es ruido del modelo: no reemplaza
+    // nada, y dejarlo pasar haría buscar una fila para pisarla con lo mismo.
+    reemplaza: reemplaza && clave(reemplaza) !== clave(hecho) ? reemplaza : null,
+  }
+}
+
+/**
+ * Clave de comparación de un hecho. Tiene que dar lo MISMO que el índice único
+ * `(user_id, lower(btrim(hecho)))` de la migración: acá se decide si un hecho
+ * ya existe, y si los dos criterios no coinciden, el insert se comería un
+ * 23505 justo cuando el chequeo previo dijo que no había duplicado.
+ */
+export function clave(texto: string): string {
+  return texto.trim().toLowerCase()
+}

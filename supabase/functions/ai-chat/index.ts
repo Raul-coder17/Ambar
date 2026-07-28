@@ -2,15 +2,32 @@
 //
 // Chat de texto (Gemini, gemini-3.1-flash-lite) con function-calling. Descifra
 // la key del usuario y hace la llamada REST a Gemini, mismo patrón que
-// Organizador-IA (ai-assistant). La arquitectura de tools está lista (ver
-// tools.ts) pero el registro está vacío: Fase 3 conecta ahí la primera tool
-// real (Tavily). Sin tools, el loop llama a Gemini una vez y devuelve texto.
+// Organizador-IA (ai-assistant). Fase 3 conecta la primera tool de búsqueda
+// (Tavily) en el mismo registro de `tools.ts`.
+//
+// Fase 2 le agregó memoria. El request a Gemini ya NO lleva el historial
+// completo: lleva los hechos del usuario y los recuerdos relevantes en la
+// system instruction, más los últimos turnos en `contents` (ver memoria.ts).
+// Y después de contestar, el intercambio se guarda embebido en
+// memoria_vectorial para poder recuperarlo más adelante.
 //
 // Reglas de seguridad clave:
 // - Requiere JWT de usuario válido + ia_habilitada = true con key guardada.
 // - La key descifrada nunca se persiste ni se devuelve al cliente.
 
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { generarEmbedding, vectorLiteral } from './embeddings.ts'
+import {
+  bloqueMemoria,
+  filtrarRecuerdos,
+  textoDelIntercambio,
+  turnosRecientes,
+  ultimoMensajeUsuario,
+  TOP_K,
+  type Hecho,
+  type MensajeHistorial,
+  type Recuerdo,
+} from './memoria.ts'
 import { decideRpmSlot } from './rpm.ts'
 import { findTool, toolDeclarations } from './tools.ts'
 
@@ -25,6 +42,8 @@ const MAX_TURNS = 5
 const GEMINI_RPM = 15
 const RPM_WINDOW_MS = 60_000
 
+// Base fija de la personalidad. Lo que sabe del usuario NO va acá: se le
+// agrega por request en `bloqueMemoria()`, porque cambia con cada charla.
 const SYSTEM_INSTRUCTION =
   'Sos Ámbar, el asistente personal del usuario. Respondé siempre en español, de forma breve y clara.'
 
@@ -54,10 +73,7 @@ async function decryptApiKey(payload: string, secretB64: string): Promise<string
 
 // ---------------------------------------------------------------------------
 
-export interface MensajeHistorial {
-  role: 'user' | 'assistant'
-  text: string
-}
+export type { MensajeHistorial }
 
 interface GeminiPart {
   text?: string
@@ -75,10 +91,15 @@ interface GeminiCandidate {
   finishReason?: string
 }
 
-// Historial plano: sin persistencia todavía (eso es Fase 2, memoria), así que
-// no hay turnos functionCall/functionResponse que reconstruir entre pedidos
-// distintos como en Organizador-IA — sólo texto de ida y vuelta de esta sesión
-// de chat en memoria del cliente.
+// Historial plano: acá entran sólo los turnos RECIENTES (ya recortados por
+// `turnosRecientes`), no la charla entera. Lo que quedó afuera vuelve por RAG
+// desde memoria_vectorial si viene al caso.
+//
+// Sigue sin haber turnos functionCall/functionResponse que reconstruir entre
+// pedidos distintos como en Organizador-IA: `recordar_hecho` se resuelve entera
+// dentro de este mismo request (no espera confirmación del usuario como las
+// acciones `propose*` de allá), así que no queda nada pendiente que contarle a
+// Gemini en el request siguiente.
 function buildContents(messages: MensajeHistorial[]): GeminiContent[] {
   return messages
     .filter((m) => typeof m.text === 'string' && m.text.trim().length > 0)
@@ -229,6 +250,7 @@ function translateGeminiError(status: number, rawBody: string): string {
 
 async function callGemini(
   apiKey: string,
+  systemInstruction: string,
   contents: GeminiContent[],
   declarations: ReturnType<typeof toolDeclarations>,
 ): Promise<GeminiCandidate> {
@@ -238,10 +260,12 @@ async function callGemini(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
+        systemInstruction: { parts: [{ text: systemInstruction }] },
         contents,
-        // Sin tools registradas todavía (Fase 1): no mandamos `tools` en
-        // absoluto en vez de un `functionDeclarations` vacío.
+        // Con el registro vacío no se manda `tools` en absoluto, en vez de un
+        // `functionDeclarations` vacío. Desde Fase 2 siempre hay al menos
+        // `recordar_hecho`, pero la guarda queda: es la que hace que el registro
+        // sea la única fuente de verdad de qué tools existen.
         ...(declarations.length > 0 ? { tools: [{ functionDeclarations: declarations }] } : {}),
         generationConfig: {
           maxOutputTokens: 2048,
@@ -270,6 +294,80 @@ async function callGemini(
   }
   return candidate as GeminiCandidate
 }
+
+// --- Memoria (Fase 2) -------------------------------------------------------
+//
+// Todo lo de acá es best-effort: si algo de la memoria falla, el chat contesta
+// igual, sólo que sin contexto o sin guardar ese intercambio. Nada de esto
+// cuenta en ia_uso ni en ia_llamadas_log: esos contadores miden el RPD/RPM de
+// gemini-3.1-flash-lite, y el modelo de embeddings tiene su propia cuota.
+
+async function cargarHechos(supabase: SupabaseClient, userId: string): Promise<Hecho[]> {
+  const { data, error } = await supabase
+    .from('memoria_hechos')
+    .select('hecho, categoria')
+    .eq('user_id', userId)
+    .order('updated_at', { ascending: false })
+
+  if (error) {
+    console.error('[ai-chat] no se pudieron cargar los hechos:', error.message)
+    return []
+  }
+  return (data ?? []) as Hecho[]
+}
+
+async function buscarRecuerdos(supabase: SupabaseClient, embedding: number[]): Promise<Recuerdo[]> {
+  const { data, error } = await supabase.rpc('buscar_memoria_vectorial', {
+    consulta: vectorLiteral(embedding),
+    limite: TOP_K,
+  })
+
+  if (error) {
+    console.error('[ai-chat] falló la búsqueda vectorial:', error.message)
+    return []
+  }
+  return filtrarRecuerdos((data ?? []) as Recuerdo[])
+}
+
+// Guarda el intercambio embebido. Se llama DESPUÉS de haberle contestado al
+// usuario (ver `enSegundoPlano`), así que su latencia no se siente en el chat.
+async function guardarIntercambio(
+  supabase: SupabaseClient,
+  apiKey: string,
+  userId: string,
+  pregunta: string,
+  respuesta: string,
+): Promise<void> {
+  const contenido = textoDelIntercambio(pregunta, respuesta)
+  // RETRIEVAL_DOCUMENT y no RETRIEVAL_QUERY: éste es el lado "documento" de la
+  // búsqueda. Gemini entrena los dos lados de forma asimétrica y mezclarlos
+  // degrada la similitud.
+  const embedding = await generarEmbedding(apiKey, contenido, 'RETRIEVAL_DOCUMENT')
+
+  // Sin embedding se guarda igual: perder el texto sería peor que perder el
+  // vector (la columna es nullable justamente por esto).
+  const { error } = await supabase.from('memoria_vectorial').insert({
+    user_id: userId,
+    contenido,
+    embedding: embedding ? vectorLiteral(embedding) : null,
+  })
+
+  if (error) console.error('[ai-chat] no se pudo guardar el intercambio:', error.message)
+}
+
+// Deja corriendo una tarea después de haber devuelto la respuesta. `waitUntil`
+// es lo que evita que el runtime mate el isolate con la escritura a mitad de
+// camino; el fallback es para cuando la función corre fuera de Supabase
+// (`supabase functions serve` viejo, tests locales).
+function enSegundoPlano(tarea: Promise<unknown>): void {
+  const seguro = tarea.catch((err) =>
+    console.error('[ai-chat] tarea de memoria falló:', err instanceof Error ? err.message : err),
+  )
+  const runtime = (globalThis as { EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void } }).EdgeRuntime
+  if (typeof runtime?.waitUntil === 'function') runtime.waitUntil(seguro)
+}
+
+// ---------------------------------------------------------------------------
 
 function messageForFinishReason(reason?: string): string {
   switch (reason) {
@@ -364,10 +462,27 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: 'Faltan mensajes.' }, 400)
   }
 
-  const contents = buildContents(messages)
+  // (c) Los últimos turnos, no la charla entera.
+  const contents = buildContents(turnosRecientes(messages))
   if (contents.length === 0) {
     return jsonResponse({ error: 'Faltan mensajes.' }, 400)
   }
+
+  // (a) Los hechos, siempre todos; (b) los recuerdos que se parezcan a lo que
+  // el usuario acaba de escribir. Se piden en paralelo porque no dependen uno
+  // del otro y los dos están entre el mensaje y la respuesta.
+  const pregunta = ultimoMensajeUsuario(messages)
+  const [hechos, recuerdos] = await Promise.all([
+    cargarHechos(supabase, user.id),
+    (async () => {
+      if (!pregunta) return []
+      const embedding = await generarEmbedding(apiKey, pregunta, 'RETRIEVAL_QUERY')
+      return embedding ? await buscarRecuerdos(supabase, embedding) : []
+    })(),
+  ])
+
+  const systemInstruction = SYSTEM_INSTRUCTION + bloqueMemoria(hechos, recuerdos)
+  console.log(`[ai-chat] contexto: hechos=${hechos.length} recuerdos=${recuerdos.length} turnos=${contents.length}`)
 
   const declarations = toolDeclarations()
 
@@ -387,7 +502,7 @@ Deno.serve(async (req) => {
         })
       }
 
-      const candidate = await callGemini(apiKey, contents, declarations)
+      const candidate = await callGemini(apiKey, systemInstruction, contents, declarations)
 
       // Llamada exitosa: incrementamos el contador diario (atómico, respeta RLS).
       const { data: nuevo } = await supabase.rpc('incrementar_uso_ia')
@@ -405,7 +520,14 @@ Deno.serve(async (req) => {
       const calls = allFunctionCalls(parts)
 
       if (calls.length === 0) {
-        return jsonResponse({ respuesta_texto: textFromParts(parts) || 'Listo.', ...usageField() })
+        const respuesta = textFromParts(parts) || 'Listo.'
+        // El intercambio se guarda sólo cuando hubo una respuesta de verdad:
+        // los avisos de cuota o de finishReason no son conversación y no tienen
+        // nada que valga la pena recordar.
+        if (pregunta) {
+          enSegundoPlano(guardarIntercambio(supabase, apiKey, user.id, pregunta, respuesta))
+        }
+        return jsonResponse({ respuesta_texto: respuesta, ...usageField() })
       }
 
       // Ejecuta cada function call contra el registro de tools (vacío en Fase
