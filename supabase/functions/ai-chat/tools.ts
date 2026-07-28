@@ -22,7 +22,9 @@
 // `reemplaza` cuando un hecho quedó viejo.
 
 import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { decryptApiKey } from './crypto.ts'
 import { clave, MAX_LARGO_HECHO, normalizarArgsHecho } from './memoria.ts'
+import { buscarEnInternet } from './tavily.ts'
 
 export interface ToolDeclaration {
   name: string
@@ -33,6 +35,9 @@ export interface ToolDeclaration {
 export interface ToolContext {
   supabase: SupabaseClient
   userId: string
+  // Necesario para descifrar la key de Tavily guardada por el usuario dentro
+  // del handler de `buscar_en_internet` (ver más abajo).
+  encryptionSecret: string
 }
 
 export type ToolHandler = (args: Record<string, unknown>, ctx: ToolContext) => Promise<unknown>
@@ -153,9 +158,66 @@ const recordarHecho: Tool = {
   },
 }
 
+// --- buscar_en_internet (Fase 3) --------------------------------------------
+
+const buscarEnInternetTool: Tool = {
+  declaration: {
+    name: 'buscar_en_internet',
+    description:
+      'Busca información actual en internet: noticias, precios, eventos recientes, o cualquier dato específico que cambie con el tiempo y que no puedas saber con certeza. ' +
+      'No la uses para lo que ya sabés, para charla general, ni para datos que ya están en la memoria del usuario.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        query: {
+          type: 'STRING',
+          description: 'La búsqueda a hacer, en pocas palabras clave (como la escribirías en un buscador).',
+        },
+      },
+      required: ['query'],
+    },
+  },
+
+  handler: async (args, ctx) => {
+    const query = typeof args.query === 'string' ? args.query.trim() : ''
+    if (!query) {
+      return { ok: false, error: 'No se especificó qué buscar.' }
+    }
+
+    const { data: settings, error } = await ctx.supabase
+      .from('ajustes_ia')
+      .select('tavily_api_key_encrypted')
+      .eq('user_id', ctx.userId)
+      .maybeSingle()
+
+    if (error) {
+      console.error('[ai-chat] buscar_en_internet: no se pudo leer la key de Tavily:', error.message)
+      return { ok: false, error: 'No pude acceder a la configuración de búsqueda en este momento.' }
+    }
+
+    const encrypted = settings?.tavily_api_key_encrypted
+    if (!encrypted) {
+      return {
+        ok: false,
+        error: 'No tenés una API key de Tavily configurada. Guardala en Ajustes para poder buscar en internet.',
+      }
+    }
+
+    let apiKey: string
+    try {
+      apiKey = await decryptApiKey(encrypted, ctx.encryptionSecret)
+    } catch (err) {
+      console.error('[ai-chat] buscar_en_internet: no se pudo descifrar la key:', err instanceof Error ? err.message : err)
+      return { ok: false, error: 'No pude leer tu key de Tavily. Volvé a guardarla en Ajustes.' }
+    }
+
+    return await buscarEnInternet(apiKey, query)
+  },
+}
+
 // ---------------------------------------------------------------------------
 
-export const TOOLS: Tool[] = [recordarHecho]
+export const TOOLS: Tool[] = [recordarHecho, buscarEnInternetTool]
 
 export function toolDeclarations(): ToolDeclaration[] {
   return TOOLS.map((t) => t.declaration)

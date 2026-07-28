@@ -1,10 +1,23 @@
 // Edge Function: manage-ai-key
 //
-// Guarda/borra la API key de Gemini del usuario autenticado. La key nunca
-// se persiste en texto plano: se valida contra la API de Gemini y se cifra
-// con AES-GCM (secret `AI_KEY_ENCRYPTION_SECRET`, definido como secret de
-// proyecto) antes de escribirla en `ajustes_ia`. Ninguna respuesta de esta
-// función devuelve la key, ni en texto plano ni cifrada.
+// Guarda/borra las API keys BYOK del usuario autenticado (Gemini, y desde
+// Fase 3 también Tavily) en `ajustes_ia`. Ninguna key se persiste en texto
+// plano: se cifra con AES-GCM (secret `AI_KEY_ENCRYPTION_SECRET`, definido
+// como secret de proyecto) antes de escribirla. Ninguna respuesta de esta
+// función devuelve una key, ni en texto plano ni cifrada.
+//
+// `provider` ('gemini' | 'tavily', default 'gemini' por compatibilidad con el
+// cliente de Fase 1) decide qué columna se toca. Gemini es distinto en dos
+// cosas, ninguna aplicable a Tavily:
+//   - se valida contra la API antes de guardar (GET /v1beta/models);
+//   - controla `ia_habilitada`, que es lo que gatea si el chat corre.
+// Tavily no tiene endpoint de "solo validar" sin gastar una búsqueda real, así
+// que se guarda sin validar (se decidió no pagar esa unidad de cuota sólo para
+// probar la key) — si es inválida, `buscar_en_internet` lo va a reportar con
+// un mensaje claro la primera vez que se use. Y al no tener un flag de
+// habilitación propio, guardar/borrar la key de Tavily nunca toca
+// `gemini_api_key_encrypted` ni `ia_habilitada` (el upsert sólo lista la
+// columna de Tavily).
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -77,12 +90,14 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: 'Sesión inválida o expirada.' }, 401)
   }
 
-  let body: { action?: string; apiKey?: string }
+  let body: { action?: string; apiKey?: string; provider?: string }
   try {
     body = await req.json()
   } catch {
     return jsonResponse({ error: 'Body inválido.' }, 400)
   }
+
+  const provider = body.provider === 'tavily' ? 'tavily' : 'gemini'
 
   if (body.action === 'save') {
     const apiKey = body.apiKey?.trim()
@@ -90,34 +105,46 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'Falta la API key.' }, 400)
     }
 
-    const valid = await isValidGeminiKey(apiKey)
-    if (!valid) {
-      return jsonResponse({ error: 'La API key no es válida según Gemini.' }, 422)
+    if (provider === 'gemini') {
+      const valid = await isValidGeminiKey(apiKey)
+      if (!valid) {
+        return jsonResponse({ error: 'La API key no es válida según Gemini.' }, 422)
+      }
     }
 
     const encrypted = await encryptApiKey(apiKey, encryptionSecret)
 
-    const { error: upsertError } = await supabase
-      .from('ajustes_ia')
-      .upsert({ user_id: user.id, gemini_api_key_encrypted: encrypted, ia_habilitada: true }, { onConflict: 'user_id' })
+    const row =
+      provider === 'gemini'
+        ? { user_id: user.id, gemini_api_key_encrypted: encrypted, ia_habilitada: true }
+        : { user_id: user.id, tavily_api_key_encrypted: encrypted }
+
+    const { error: upsertError } = await supabase.from('ajustes_ia').upsert(row, { onConflict: 'user_id' })
 
     if (upsertError) {
       return jsonResponse({ error: 'No se pudo guardar la key.' }, 500)
     }
 
-    return jsonResponse({ ok: true, ia_habilitada: true })
+    return provider === 'gemini'
+      ? jsonResponse({ ok: true, ia_habilitada: true })
+      : jsonResponse({ ok: true, tavily_habilitada: true })
   }
 
   if (body.action === 'remove') {
-    const { error: upsertError } = await supabase
-      .from('ajustes_ia')
-      .upsert({ user_id: user.id, gemini_api_key_encrypted: null, ia_habilitada: false }, { onConflict: 'user_id' })
+    const row =
+      provider === 'gemini'
+        ? { user_id: user.id, gemini_api_key_encrypted: null, ia_habilitada: false }
+        : { user_id: user.id, tavily_api_key_encrypted: null }
+
+    const { error: upsertError } = await supabase.from('ajustes_ia').upsert(row, { onConflict: 'user_id' })
 
     if (upsertError) {
-      return jsonResponse({ error: 'No se pudo desactivar la IA.' }, 500)
+      return jsonResponse({ error: provider === 'gemini' ? 'No se pudo desactivar la IA.' : 'No se pudo quitar la key.' }, 500)
     }
 
-    return jsonResponse({ ok: true, ia_habilitada: false })
+    return provider === 'gemini'
+      ? jsonResponse({ ok: true, ia_habilitada: false })
+      : jsonResponse({ ok: true, tavily_habilitada: false })
   }
 
   return jsonResponse({ error: 'Acción desconocida.' }, 400)

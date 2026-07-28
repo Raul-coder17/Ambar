@@ -16,6 +16,7 @@
 // - La key descifrada nunca se persiste ni se devuelve al cliente.
 
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { decryptApiKey } from './crypto.ts'
 import { generarEmbedding, vectorLiteral } from './embeddings.ts'
 import {
   bloqueMemoria,
@@ -58,17 +59,6 @@ function jsonResponse(body: unknown, status = 200) {
     status,
     headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
   })
-}
-
-async function decryptApiKey(payload: string, secretB64: string): Promise<string> {
-  const [ivB64, ctB64] = payload.split('.')
-  if (!ivB64 || !ctB64) throw new Error('Formato de key cifrada inválido.')
-  const iv = Uint8Array.from(atob(ivB64), (c) => c.charCodeAt(0))
-  const ciphertext = Uint8Array.from(atob(ctB64), (c) => c.charCodeAt(0))
-  const secretBytes = Uint8Array.from(atob(secretB64), (c) => c.charCodeAt(0))
-  const cryptoKey = await crypto.subtle.importKey('raw', secretBytes, 'AES-GCM', false, ['decrypt'])
-  const plaintext = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, cryptoKey, ciphertext)
-  return new TextDecoder().decode(plaintext)
 }
 
 // ---------------------------------------------------------------------------
@@ -540,7 +530,7 @@ Deno.serve(async (req) => {
       for (const call of calls) {
         const tool = findTool(call.name)
         const result = tool
-          ? await tool.handler(call.args, { supabase, userId: user.id })
+          ? await tool.handler(call.args, { supabase, userId: user.id, encryptionSecret })
           : { error: `Tool desconocida: ${call.name}` }
         responseParts.push({ functionResponse: { name: call.name, response: result as Record<string, unknown> } })
       }
