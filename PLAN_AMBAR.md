@@ -101,6 +101,32 @@ Asistente de voz PWA multi-usuario, con personalidad, memoria persistente y capa
 ### Fase 8 — Backlog de herramientas adicionales
 - Jina Reader, Wolfram Alpha, OpenWeatherMap, GNews/NewsAPI — mismo patrón BYOK/tool, una a la vez
 
+## Decisiones técnicas — Fase 0
+
+- **Package manager:** npm (viene con el Node del sistema, sin justificación para pnpm/yarn todavía).
+- **Tailwind v4** vía `@tailwindcss/vite` (sin `tailwind.config.js`, todo por CSS-first config — no se necesitó tocar nada extra, `@import "tailwindcss";` en `src/index.css` basta).
+- **PWA** vía `vite-plugin-pwa`, `registerType: 'autoUpdate'`, estrategia `generateSW` (default del plugin). Esto ya genera un service worker con precache de los assets del build — es el mínimo de un PWA instalable, no hay lógica de runtime caching para llamadas a la API ni estrategia offline custom todavía (eso es de una fase posterior si se decide).
+- **Icono:** placeholder SVG simple en `public/icon.svg` (círculo ámbar sobre fondo oscuro) — reemplazar cuando haya identidad visual definida (Fase 7 menciona definir acento de color).
+- **Estructura de carpetas:**
+  ```
+  src/
+    lib/
+      supabase.ts        # cliente único de Supabase, lee VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY
+    features/
+      auth/
+        AuthContext.tsx  # provider de sesión (supabase.auth.getSession + onAuthStateChange)
+        AuthScreen.tsx   # login/registro con email+password, un solo form que alterna modo
+      home/
+        HomeScreen.tsx   # placeholder post-login, se reemplaza en Fase 7 por el Home real (chat + FAB Live)
+    App.tsx              # Gate: AuthProvider + render condicional (AuthScreen vs HomeScreen)
+  ```
+  Se eligió `features/` en vez de `components/` plano porque el plan ya anticipa varias áreas (auth, chat, memoria, objetivos) que van a crecer cada una con su propia lógica — mejor separarlas desde ahora que reorganizar después.
+- **Auth:** email + password (no magic link) — más simple de probar en Fase 0, sin dependencia de que llegue un correo. Se puede añadir magic link/OAuth después sin romper nada porque `AuthScreen` es la única pieza que sabe cómo autenticar.
+- **Router:** `react-router-dom` instalado desde ya (está en el stack por las fases futuras de UI con tab bar), pero **no está wireado todavía** — Fase 0 usa un simple `if (session)` porque solo hay dos pantallas.
+- **Git:** repo local + remoto en GitHub (`<pendiente URL>`).
+- **Supabase:** proyecto creado vía CLI (`npx supabase`) con un Personal Access Token del usuario, no vía dashboard manual.
+- **Notion:** pospuesto — no se creó espacio en esta fase, este `.md` es la única fuente de verdad por ahora.
+
 ## Límites de Gemini y manejo de cuota (ya definido, no improvisar aquí)
 
 - **Live:** sin compresión, audio-solo dura 15 min, audio+video 2 min; conexión dura ~10 min. Solución: activar context window compression (ventana deslizante) + session resumption desde el día 1. Ventana de contexto: 128k tokens.
