@@ -104,7 +104,9 @@ Asistente de voz PWA multi-usuario, con personalidad, memoria persistente y capa
 ## Estado
 
 - **Fase 0: validada en vivo** (2026-07-28). Proyecto Supabase `ambar` (ref `zrqcnykrrshpbauhhcef`, región `sa-east-1`). Registro probado end-to-end contra el backend real (signup crea el usuario, el trigger crea su fila en `perfiles`, login con email sin confirmar devuelve el error real de Supabase "Email not confirmed"). Repo en https://github.com/Raul-coder17/Ambar.
+- **Fase 1: validada en vivo** (2026-07-28). Migración aplicada contra la base remota, ambas Edge Functions (`manage-ai-key`, `ai-chat`) desplegadas. Flujo completo probado por Raúl contra el backend real: guardar la key de Gemini en Ajustes, y chat de texto funcionando con `gemini-3.1-flash-lite`.
 - Password de la base de datos generado por Code durante el setup — **no está guardado en ningún archivo del repo**. Se lo pasé a Raúl en el chat de la sesión donde se creó; si se pierde, se resetea desde el dashboard de Supabase (Project Settings → Database).
+- `AI_KEY_ENCRYPTION_SECRET` generado por Code y seteado como secret del proyecto Supabase vía CLI (`supabase secrets set`) — **no está guardado en ningún archivo del repo ni se mostró en el chat**. Es distinto del password de la base de datos: protege las API keys de Gemini/Tavily de todos los usuarios, no solo el acceso de Raúl. Si se pierde no hay forma de recuperarlo (no de resetearlo sin invalidar las keys ya guardadas: un reset requeriría que cada usuario vuelva a guardar su key desde Ajustes).
 
 ## Decisiones técnicas — Fase 0
 
@@ -131,6 +133,25 @@ Asistente de voz PWA multi-usuario, con personalidad, memoria persistente y capa
 - **Git:** repo local + remoto en GitHub (`<pendiente URL>`).
 - **Supabase:** proyecto creado vía CLI (`npx supabase`) con un Personal Access Token del usuario, no vía dashboard manual.
 - **Notion:** pospuesto — no se creó espacio en esta fase, este `.md` es la única fuente de verdad por ahora.
+
+## Decisiones técnicas — Fase 1
+
+- **Cifrado de la key BYOK:** AES-GCM con un secret de 32 bytes (`AI_KEY_ENCRYPTION_SECRET`, generado con `openssl rand -base64 32` y seteado como secret de la Edge Function vía `supabase secrets set` — nunca en el repo, nunca mostrado en el chat). El payload guardado en `ajustes_ia.gemini_api_key_encrypted` es `iv_base64.ciphertext_base64`; se cifra/descifra con `crypto.subtle` (Web Crypto, disponible nativo en Deno). Mismo patrón exacto que `manage-ai-key` de Organizador-IA.
+- **Validación de la key:** antes de cifrar y guardar, `manage-ai-key` la prueba contra `GET /v1beta/models` de Gemini — si no es válida, no se guarda nada.
+- **Esquema (migración `20260728200000_ajustes_ia.sql`):**
+  - `ajustes_ia` (1 fila por usuario): `gemini_api_key_encrypted`, `ia_habilitada`, `cuota_diaria_aprendida` + `cuota_diaria_aprendida_modelo` (la cuota aprendida de un 429 solo vale para el modelo bajo el que se aprendió — si Raúl cambia de modelo, se reaprende sola del próximo 429 real).
+  - `ia_uso` (contador diario, día calculado en `America/Los_Angeles` para coincidir con el reset de cuota de Gemini) + RPC `incrementar_uso_ia()` / `uso_ia_hoy()`, ambas `security invoker` (respetan RLS).
+  - `ia_llamadas_log` (marca de tiempo por llamada real a Gemini) para el freno de RPM — la Edge Function poda sus propias marcas más viejas que la ventana en cada chequeo.
+  - Nombres en español para ser consistentes con `perfiles` (a diferencia de Organizador-IA, que usa `user_ai_settings`/`ai_usage` en inglés).
+- **Rate-limiter adaptativo:** dos mecanismos independientes, igual que Organizador-IA:
+  - **RPM (15, hardcodeado):** freno proactivo con ventana deslizante de 60s (`decideRpmSlot` en `rpm.ts`, lógica pura). No se "aprende": no hay una forma confiable de derivarlo de un 429 con esa granularidad.
+  - **Cuota diaria (aprendida, no hardcodeada en 500):** se lee del propio body del primer 429 real de Gemini (`quotaValue`) y se guarda en `ajustes_ia.cuota_diaria_aprendida`. Preflight: si ya se alcanzó la cuota aprendida de hoy, la Edge Function responde al instante sin gastar una llamada real.
+- **Edge Function `ai-chat`:** REST a `gemini-3.1-flash-lite` (`generateContent`), mismo modelo y mismo `thinkingConfig: { thinkingLevel: 'MINIMAL' }` que Organizador-IA (el modelo 3.1 gasta budget de salida razonando por defecto; con function-calling puede agotarlo antes de emitir parts). Loop de hasta 5 turnos.
+- **Arquitectura de function-calling (lista, sin tools reales):** `tools.ts` define un registro `TOOLS: Tool[]` (declaración + handler) vacío. `ai-chat/index.ts` arma `tools: [{ functionDeclarations }]` en el payload a Gemini **solo si el registro no está vacío** — con `TOOLS = []` no se manda `tools` en absoluto, así que el loop de despacho existe pero nunca se ejecuta todavía. Fase 3 agrega ahí `buscar_en_internet` (Tavily); Fase 4 (Live) reusa el mismo registro.
+- **Historial de chat:** sin persistencia (eso es Fase 2 — memoria). El array de mensajes vive en el estado de React de `ChatScreen` y se manda completo en cada request; se pierde al refrescar la página. No hay reconstrucción de turnos `functionCall`/`functionResponse` entre requests todavía porque no hay acciones que confirmar/cancelar como en Organizador-IA (eso solo aparece junto con tools reales).
+- **System instruction:** placeholder mínimo ("Sos Ámbar, el asistente personal del usuario. Respondé siempre en español, de forma breve y clara.") — la personalidad real no está definida en el alcance de esta fase, se revisita cuando se diseñe.
+- **Frontend:** sin router todavía (sigue el patrón de Fase 0). `HomeScreen` agregó un toggle de estado simple entre pestañas "Chat" y "Ajustes" — no es la navegación tab-bar real, eso es Fase 7. `ChatScreen` bloquea el input y muestra un aviso si `ia_habilitada` es `false`.
+- **Manejo de errores en el cliente:** `supabase-js` descarta el body de una respuesta no-2xx en `error.message` (queda "non-2xx status code"); el mensaje real ya traducido al español se lee de `error.context` (la `Response` cruda). Mismo patrón que `AssistantDrawer`/`SettingsPage` de Organizador-IA.
 
 ## Límites de Gemini y manejo de cuota (ya definido, no improvisar aquí)
 
