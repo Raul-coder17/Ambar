@@ -23,7 +23,9 @@
 
 import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { decryptApiKey } from './crypto.ts'
+import { generarEmbedding } from './embeddings.ts'
 import { clave, MAX_LARGO_HECHO, normalizarArgsHecho } from './memoria.ts'
+import { buscarRecuerdos } from './recuerdos.ts'
 import { buscarEnInternet } from './tavily.ts'
 
 export interface ToolDeclaration {
@@ -42,9 +44,14 @@ export interface ToolContext {
 
 export type ToolHandler = (args: Record<string, unknown>, ctx: ToolContext) => Promise<unknown>
 
+export type ModoConversacion = 'texto' | 'live'
+
 export interface Tool {
   declaration: ToolDeclaration
   handler: ToolHandler
+  // Si está seteado, la tool sólo se declara en ese modo (ver `toolDeclarations`).
+  // Sin esto, disponible en los dos — es el caso por defecto y el de casi todas.
+  soloModo?: ModoConversacion
 }
 
 // --- recordar_hecho ---------------------------------------------------------
@@ -224,6 +231,86 @@ const olvidarHecho: Tool = {
   },
 }
 
+// --- buscar_en_memoria (D3, solo Live) --------------------------------------
+//
+// El modo texto ya dispara RAG automático contra el último mensaje del
+// usuario en CADA request (`buscarRecuerdos` en `ai-chat/index.ts`, vía
+// `_shared/recuerdos.ts`) — no necesita pedirlo. Live no tiene ese
+// automatismo: al abrir la sesión el usuario todavía no dijo nada contra qué
+// buscar (ver el comentario en `live/index.ts`), así que esta tool le da
+// acceso a la misma memoria vectorial pero A DEMANDA, cuando la charla
+// hablada lo necesita a mitad de turno.
+//
+// Reusa `buscarRecuerdos` (mismo TOP_K, mismo UMBRAL_SIMILITUD) en vez de
+// reimplementar la llamada al RPC — es la decisión D3 del diagnóstico
+// original de Fase 4, confirmada pero nunca construida hasta ahora.
+//
+// `soloModo: 'live'` es lo único que la mantiene fuera de `toolDeclarations`
+// en modo texto (ver más abajo): en texto sería redundante con el RAG
+// automático que ya corre en cada mensaje.
+
+const buscarEnMemoriaTool: Tool = {
+  declaration: {
+    name: 'buscar_en_memoria',
+    description:
+      'Busca en tus recuerdos de conversaciones anteriores con este usuario algo que se haya hablado antes y que no ' +
+      'esté en la lista de hechos que ya sabés de él. Usala cuando la charla necesite ese contexto y no lo tengas a mano. ' +
+      'No la uses para datos que ya están en la lista de hechos: para eso no hace falta buscar nada.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        consulta: {
+          type: 'STRING',
+          description: 'Qué buscar en la memoria, en pocas palabras (el tema o dato que necesitás recordar).',
+        },
+      },
+      required: ['consulta'],
+    },
+  },
+  soloModo: 'live',
+
+  handler: async (args, ctx) => {
+    const consulta = typeof args.consulta === 'string' ? args.consulta.trim() : ''
+    if (!consulta) {
+      return { ok: false, error: 'No se especificó qué buscar en la memoria.' }
+    }
+
+    // Misma key BYOK de Gemini que ya usa el resto de la memoria (Fase 2): el
+    // embedding de la consulta es del mismo proveedor que el chat, no hace
+    // falta una key nueva.
+    const { data: settings, error } = await ctx.supabase
+      .from('ajustes_ia')
+      .select('gemini_api_key_encrypted')
+      .eq('user_id', ctx.userId)
+      .maybeSingle()
+
+    if (error || !settings?.gemini_api_key_encrypted) {
+      console.error('[live] buscar_en_memoria: no se pudo leer la key de Gemini:', error?.message)
+      return { ok: false, error: 'No pude acceder a la memoria en este momento.' }
+    }
+
+    let apiKey: string
+    try {
+      apiKey = await decryptApiKey(settings.gemini_api_key_encrypted, ctx.encryptionSecret)
+    } catch (err) {
+      console.error('[live] buscar_en_memoria: no se pudo descifrar la key:', err instanceof Error ? err.message : err)
+      return { ok: false, error: 'No pude leer tu key de Gemini.' }
+    }
+
+    const embedding = await generarEmbedding(apiKey, consulta, 'RETRIEVAL_QUERY')
+    if (!embedding) {
+      return { ok: false, error: 'No pude buscar en la memoria en este momento.' }
+    }
+
+    const recuerdos = await buscarRecuerdos(ctx.supabase, embedding)
+    if (recuerdos.length === 0) {
+      return { ok: true, encontrado: false, nota: 'No encontré nada en la memoria sobre eso.' }
+    }
+
+    return { ok: true, encontrado: true, recuerdos: recuerdos.map((r) => r.contenido) }
+  },
+}
+
 // --- buscar_en_internet (Fase 3) --------------------------------------------
 
 const buscarEnInternetTool: Tool = {
@@ -283,10 +370,10 @@ const buscarEnInternetTool: Tool = {
 
 // ---------------------------------------------------------------------------
 
-export const TOOLS: Tool[] = [recordarHecho, olvidarHecho, buscarEnInternetTool]
+export const TOOLS: Tool[] = [recordarHecho, olvidarHecho, buscarEnMemoriaTool, buscarEnInternetTool]
 
-export function toolDeclarations(): ToolDeclaration[] {
-  return TOOLS.map((t) => t.declaration)
+export function toolDeclarations(modo: ModoConversacion): ToolDeclaration[] {
+  return TOOLS.filter((t) => !t.soloModo || t.soloModo === modo).map((t) => t.declaration)
 }
 
 export function findTool(name: string): Tool | undefined {

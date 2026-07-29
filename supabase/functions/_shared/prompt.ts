@@ -65,8 +65,12 @@ export const INSTRUCCION_ESTILO_VOZ =
   'Nunca uses markdown, viñetas, listas numeradas ni emojis: no se pueden pronunciar. ' +
   'Si tenés que enumerar algo, decilo corrido ("primero tal, después tal otra"). ' +
   'Si el usuario te interrumpe, cortá y escuchá — no termines la frase a la fuerza.\n\n' +
-  'Antes de usar una herramienta que tarda (como buscar_en_internet), decí en voz alta que la vas a usar ' +
-  '("dejame buscarlo", "esperá que lo chequeo") para que el silencio no parezca que se cortó la llamada.'
+  'Antes de usar una herramienta que tarda (como buscar_en_internet o buscar_en_memoria), decí en voz alta que la vas ' +
+  'a usar ("dejame buscarlo", "esperá que lo chequeo") para que el silencio no parezca que se cortó la llamada.\n\n' +
+  'Llamá a buscar_en_memoria cuando la charla necesite algo que se habló antes con este usuario y no esté ya en la ' +
+  'lista de lo que sabés de él: un tema, una conversación pasada, un detalle que mencionó en otro momento. ' +
+  'No la uses para lo que ya está en esa lista (para eso no hace falta buscar) ni como sustituto de recordar_hecho u ' +
+  'olvidar_hecho: buscar_en_memoria sólo consulta, nunca guarda ni borra nada.'
 
 /** System instruction del modo Live: la misma base, más el estilo hablado. */
 export function systemInstructionLive(): string {

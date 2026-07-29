@@ -20,17 +20,14 @@ import { decryptApiKey } from '../_shared/crypto.ts'
 import { generarEmbedding, vectorLiteral } from '../_shared/embeddings.ts'
 import {
   bloqueMemoria,
-  filtrarRecuerdos,
   textoDelIntercambio,
   turnosRecientes,
   ultimoMensajeUsuario,
-  TOP_K,
-  UMBRAL_SIMILITUD,
   type Hecho,
   type MensajeHistorial,
-  type Recuerdo,
 } from '../_shared/memoria.ts'
 import { systemInstructionBase } from '../_shared/prompt.ts'
+import { buscarRecuerdos } from '../_shared/recuerdos.ts'
 import { findTool, toolDeclarations } from '../_shared/tools.ts'
 import { decideRpmSlot } from './rpm.ts'
 
@@ -303,35 +300,6 @@ async function cargarHechos(supabase: SupabaseClient, userId: string): Promise<H
   return (data ?? []) as Hecho[]
 }
 
-async function buscarRecuerdos(supabase: SupabaseClient, embedding: number[]): Promise<Recuerdo[]> {
-  const { data, error } = await supabase.rpc('buscar_memoria_vectorial', {
-    consulta: vectorLiteral(embedding),
-    limite: TOP_K,
-  })
-
-  if (error) {
-    console.error('[ai-chat] falló la búsqueda vectorial:', error.message)
-    return []
-  }
-
-  const crudos = (data ?? []) as Recuerdo[]
-  const filtrados = filtrarRecuerdos(crudos)
-
-  // Instrumentación para calibrar UMBRAL_SIMILITUD con uso real (post-Fase 2):
-  // sin esto no había forma de saber si 0.6 estaba descartando recuerdos que
-  // sí eran relevantes. Loguea la similitud de CADA resultado que trajo la
-  // búsqueda, aunque haya quedado abajo del umbral — incluso cuando ninguno
-  // sobrevive el filtro y `recuerdos` termina en 0.
-  const similitudes = crudos
-    .map((r) => `${r.similitud.toFixed(3)}${r.similitud >= UMBRAL_SIMILITUD ? '' : ' [descartado]'}`)
-    .join(', ')
-  console.log(
-    `[ai-chat] recuerdos: disponibles=${crudos.length} usados=${filtrados.length} similitudes=[${similitudes}]`,
-  )
-
-  return filtrados
-}
-
 // Guarda el intercambio embebido. Se llama DESPUÉS de haberle contestado al
 // usuario (ver `enSegundoPlano`), así que su latencia no se siente en el chat.
 async function guardarIntercambio(
@@ -487,7 +455,7 @@ Deno.serve(async (req) => {
   const systemInstruction = systemInstructionBase() + bloqueMemoria(hechos, recuerdos)
   console.log(`[ai-chat] contexto: hechos=${hechos.length} recuerdos=${recuerdos.length} turnos=${contents.length}`)
 
-  const declarations = toolDeclarations()
+  const declarations = toolDeclarations('texto')
 
   let usedToday: number | null = null
   const usageField = () => ({ usage: { used_today: usedToday ?? undefined, daily_quota: learned ?? undefined } })

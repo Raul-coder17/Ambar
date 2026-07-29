@@ -120,7 +120,7 @@ function errorResponse(motivo: Motivo, error: string, status: number, extra: Rec
 const TOOLS_HABILITADAS = true
 
 function buildSetup(systemInstruction: string) {
-  const declaraciones = TOOLS_HABILITADAS ? toolDeclarations() : []
+  const declaraciones = TOOLS_HABILITADAS ? toolDeclarations('live') : []
 
   return {
     model: LIVE_MODEL,
@@ -325,7 +325,8 @@ Deno.serve(async (req) => {
 
     // Los hechos van completos, igual que en texto. Los recuerdos por RAG no:
     // al abrir la sesión el usuario todavía no dijo nada contra qué buscar.
-    // Eso lo resuelve la tool `buscar_en_memoria` (D3), que es de 4d.
+    // Eso lo resuelve la tool `buscar_en_memoria` (D3, ver tools.ts) — a
+    // demanda, cuando el modelo decide que la necesita durante la charla.
     const hechos = await cargarHechos(supabase, user.id)
     const systemInstruction = systemInstructionLive() + bloqueMemoria(hechos, [])
 
