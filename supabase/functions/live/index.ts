@@ -100,8 +100,18 @@ function errorResponse(motivo: Motivo, error: string, status: number, extra: Rec
  * lo aporta el cliente en su propio setup (es donde viaja el handle al
  * reconectar). Ver el comentario de FIELD_MASK.
  */
+// Las tools se declaran recién en 4d, cuando exista el puente que las ejecuta.
+//
+// No es prudencia de más: declarar una tool sin nada que la conteste deja la
+// sesión colgada esperando un functionResponse que no va a llegar — y en modo
+// voz eso se percibe como que Ámbar se quedó mudo a mitad de la charla. El
+// smoke test de 4b ya validó que las declaraciones tienen forma correcta (el
+// setupComplete las aceptó), así que ponerlas en false no pierde esa
+// verificación; sólo pospone su uso hasta que haya quién responda.
+const TOOLS_HABILITADAS = false
+
 function buildSetup(systemInstruction: string) {
-  const declaraciones = toolDeclarations()
+  const declaraciones = TOOLS_HABILITADAS ? toolDeclarations() : []
 
   return {
     model: LIVE_MODEL,
