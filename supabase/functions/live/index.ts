@@ -23,7 +23,19 @@
 // `ai-chat` usa en modo texto, así que `recordar_hecho` y `buscar_en_internet`
 // se comportan igual en los dos modos.
 //
-// Sin resumption/reconexión (4e) ni cámara (4f) todavía.
+// 4e (resumption/reconexión) no agregó acciones nuevas: `contextWindowCompression`
+// ya estaba fijado en el token desde 4b, y `latir_sesion_live` ya aceptaba un
+// handle desde el mismo momento (pensado para esto). Lo único que se tocó acá
+// es que `abrir` ahora también persiste el handle si el cliente lo manda al
+// pedir un token nuevo a mitad de una reconexión — ver el bloque `if
+// (body.handle...)` más abajo.
+//
+// 4f agregó la cámara (sin cambios acá, todo del lado del cliente). 4g agregó
+// `forzar` en `abrir` (ver el bloque `reclamar_sesion_live` más abajo): deja
+// que el cliente cierre la sesión de OTRO dispositivo cuando el usuario lo
+// pide explícitamente tras un `sesion_activa`. El fallback a texto en sí
+// (cuando Live falla por cualquier otro motivo) es enteramente del cliente —
+// esta función no necesita saber que existe.
 
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { decryptApiKey } from '../_shared/crypto.ts'
@@ -247,7 +259,14 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: 'Sesión inválida o expirada.' }, 401)
   }
 
-  let body: { action?: string; session_id?: string; handle?: string; name?: string; args?: Record<string, unknown> }
+  let body: {
+    action?: string
+    session_id?: string
+    handle?: string
+    name?: string
+    args?: Record<string, unknown>
+    forzar?: boolean
+  }
   try {
     body = await req.json()
   } catch {
@@ -272,8 +291,13 @@ Deno.serve(async (req) => {
 
     // El lock se reclama ANTES de mintear: si hay otra sesión viva, no tiene
     // sentido gastar una llamada a Gemini.
+    //
+    // `forzar` (4g): el cliente lo manda cuando el usuario, tras ver el
+    // diagnóstico `sesion_activa`, elige explícitamente cerrar la sesión del
+    // otro dispositivo y continuar acá. Nunca se activa solo.
     const { data: lockRows, error: lockError } = await supabase.rpc('reclamar_sesion_live', {
       p_session_id: sessionId,
+      p_forzar: Boolean(body.forzar),
     })
 
     if (lockError) {
@@ -312,6 +336,21 @@ Deno.serve(async (req) => {
       // bloqueado 90s por una sesión que nunca existió.
       await supabase.rpc('liberar_sesion_live', { p_session_id: sessionId })
       return errorResponse(minted.motivo, minted.error, minted.motivo === 'sin_cuota' ? 429 : 502)
+    }
+
+    // El cliente manda `handle` acá cuando este `abrir` es en realidad un
+    // re-mint a mitad de una reconexión (4e): su handle en memoria es más
+    // fresco que el que ya esté en la fila (el heartbeat sólo persiste cada
+    // 30s), y este re-mint es la única otra ocasión en que igual se está
+    // hablando con el servidor, así que aprovecharla es gratis. Best-effort:
+    // si falla, el handle de todas formas se va a persistir en el próximo
+    // latido normal.
+    if (typeof body.handle === 'string' && body.handle) {
+      const { error: latirError } = await supabase.rpc('latir_sesion_live', {
+        p_session_id: sessionId,
+        p_handle: body.handle,
+      })
+      if (latirError) console.error('[live] no se pudo persistir el handle en abrir:', latirError.message)
     }
 
     console.log(`[live] sesión abierta: hechos=${hechos.length} session_id=${sessionId}`)

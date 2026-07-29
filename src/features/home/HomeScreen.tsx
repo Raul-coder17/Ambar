@@ -1,7 +1,8 @@
-import { lazy, Suspense, useState } from 'react'
+import { lazy, Suspense, useCallback, useState } from 'react'
 import { useAuth } from '../auth/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { ChatScreen } from '../chat/ChatScreen'
+import { ConversacionProvider } from '../chat/ConversacionContext'
 import { SettingsScreen } from '../settings/SettingsScreen'
 
 // LiveScreen se carga aparte porque arrastra @google/genai, que solo (~450 KB
@@ -17,10 +18,19 @@ const LiveScreen = lazy(() => import('../live/LiveScreen').then((m) => ({ defaul
 
 type Tab = 'chat' | 'ajustes'
 
-export function HomeScreen() {
+function HomeScreenInterior() {
   const { session } = useAuth()
   const [tab, setTab] = useState<Tab>('chat')
   const [live, setLive] = useState(false)
+
+  // `irAChat` (4g): cuando LiveScreen se cierra por un fallback a texto (no
+  // por el botón "Salir"), queremos aterrizar en la pestaña Chat aunque el
+  // usuario hubiera estado en Ajustes antes de abrir Live — es donde vive la
+  // transcripción y el banner que acaba de aparecer.
+  const cerrarLive = useCallback((irAChat?: boolean) => {
+    setLive(false)
+    if (irAChat) setTab('chat')
+  }, [])
 
   // LiveScreen se monta y desmonta con el modo: al desmontarse, el hook corre
   // su limpieza y suelta el lock del servidor. Mantenerla montada y oculta
@@ -38,7 +48,7 @@ export function HomeScreen() {
           </div>
         }
       >
-        <LiveScreen onCerrar={() => setLive(false)} />
+        <LiveScreen onCerrar={cerrarLive} />
       </Suspense>
     )
   }
@@ -86,5 +96,16 @@ export function HomeScreen() {
         🎙️
       </button>
     </div>
+  )
+}
+
+// El historial compartido (4g) tiene que vivir por ENCIMA del if/else de
+// arriba: ChatScreen y LiveScreen se montan y desmontan turnándose, y el
+// Context es justamente lo que sobrevive a eso.
+export function HomeScreen() {
+  return (
+    <ConversacionProvider>
+      <HomeScreenInterior />
+    </ConversacionProvider>
   )
 }
