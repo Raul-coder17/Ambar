@@ -48,3 +48,24 @@ export function fechaActual(): string {
 export function systemInstructionBase(): string {
   return `${SYSTEM_INSTRUCTION_BASE}\n\nHoy es ${fechaActual()}.`
 }
+
+// Lo que se le agrega SOLO en modo Live (Fase 4). La base de arriba está
+// escrita para texto, donde "breve y clara" todavía admite una lista o un par
+// de párrafos; en voz eso se escucha mal y no se puede releer.
+//
+// Lo de avisar antes de buscar no es cosmético: una búsqueda `advanced` de
+// Tavily tarda varios segundos, y en una conversación hablada un silencio
+// largo se interpreta como que se cortó la llamada.
+export const INSTRUCCION_ESTILO_VOZ =
+  'Esta conversación es hablada: el usuario te escucha, no te lee. ' +
+  'Usá frases cortas y lenguaje natural, como quien habla por teléfono. ' +
+  'Nunca uses markdown, viñetas, listas numeradas ni emojis: no se pueden pronunciar. ' +
+  'Si tenés que enumerar algo, decilo corrido ("primero tal, después tal otra"). ' +
+  'Si el usuario te interrumpe, cortá y escuchá — no termines la frase a la fuerza.\n\n' +
+  'Antes de usar una herramienta que tarda (como buscar_en_internet), decí en voz alta que la vas a usar ' +
+  '("dejame buscarlo", "esperá que lo chequeo") para que el silencio no parezca que se cortó la llamada.'
+
+/** System instruction del modo Live: la misma base, más el estilo hablado. */
+export function systemInstructionLive(): string {
+  return `${systemInstructionBase()}\n\n${INSTRUCCION_ESTILO_VOZ}`
+}
