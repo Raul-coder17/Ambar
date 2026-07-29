@@ -147,7 +147,7 @@ export function ChatScreen() {
           onChange={(e) => setInput(e.target.value)}
           placeholder="Escribí un mensaje…"
           disabled={sending || iaHabilitada === null}
-          className="flex-1 rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-amber-500 disabled:opacity-50"
+          className="flex-1 rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-[16px] leading-5 text-slate-100 outline-none focus:border-amber-500 disabled:opacity-50"
         />
         <button
           type="submit"

@@ -271,6 +271,14 @@ Mismo patrón de falta de proactividad apareció con `recordar_hecho` (Fase 2): 
 - **Desplegado:** migración `20260729010000_forzar_sesion_live.sql` aplicada contra la base remota (confirmado con `supabase migration list`), `live` redesplegada. Smoke test sin auth devolvió 401 (arrancó bien, sin error de boot). `tsc -b` sin errores.
 - **Pendiente conocido:** falta lo que la marca como Hecha — que Raúl confirme en vivo (1) que un mensaje de texto ve una charla de voz previa como si el usuario la hubiera escrito, (2) que forzar cierre de la otra sesión funciona con dos pestañas/dispositivos reales, (3) que al menos uno de los motivos de fallback (agotar reintentos es el más fácil de simular) cierra Live, muestra el banner y deja la transcripción en el chat, y (4) que el banner se lee bien y el botón de descartar funciona.
 
+## Ajuste de calidad post-validación en vivo (2026-07-29)
+
+Raúl reportó que en iPhone, al tocar el input de chat o los campos de API key en Ajustes, la pantalla hacía zoom automático y arruinaba la experiencia. Diagnóstico (sesión de solo-diagnóstico, sin tocar código): es el comportamiento conocido de iOS Safari que hace zoom al enfocar un `<input>`/`<textarea>` con `font-size` computado menor a 16px. Tres campos tenían `text-sm` (0.875rem = 14px, sin override en `index.css`): el input de `ChatScreen`, y los dos inputs de API key (Gemini y Tavily) de `SettingsScreen`. Los inputs de email/contraseña de `AuthScreen` no llevaban `text-sm` en el propio `<input>` (solo en su `<label>`), así que ya heredaban el tamaño base de 16px y no tenían el problema — se dejaron intactos. El meta tag viewport de `index.html` ya estaba bien formado (`width=device-width, initial-scale=1.0`, sin `maximum-scale`/`user-scalable=no`); no era la causa.
+
+- **Fix:** los 3 inputs afectados pasaron de `text-sm` a `text-[16px] leading-5` — se preservó el `line-height` de 1.25rem (20px) que ya tenía `text-sm` en vez de saltar a `text-base` (line-height 1.5rem), para no engordar la altura del input respecto al botón de al lado (verificado: ambos quedan en 38px de alto, antes y después).
+- **Verificación:** `tsc -b` sin errores, `oxlint` sin warnings nuevos (los dos preexistentes son de fast-refresh en contextos, no relacionados). Verificación visual inyectando los inputs reales (mismas clases) en la página para comparar antes/después sin necesitar login — sin AuthScreen ni Chat/Settings reales corridos end-to-end en el dispositivo todavía.
+- **Pendiente:** validación en vivo en el iPhone real de Raúl, que es lo único que puede confirmar que el zoom ya no ocurre.
+
 ## Límites de Gemini y manejo de cuota (ya definido, no improvisar aquí)
 
 - **Live:** sin compresión, audio-solo dura 15 min, audio+video 2 min; conexión dura ~10 min. Solución: activar context window compression (ventana deslizante) + session resumption desde el día 1. Ventana de contexto: 128k tokens.

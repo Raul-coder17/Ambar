@@ -178,7 +178,7 @@ export function SettingsScreen() {
           onChange={(e) => setApiKey(e.target.value)}
           placeholder="AIza..."
           autoComplete="off"
-          className="rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-amber-500"
+          className="rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-[16px] leading-5 text-slate-100 outline-none focus:border-amber-500"
         />
         <div className="flex gap-2">
           <button
@@ -236,7 +236,7 @@ export function SettingsScreen() {
           onChange={(e) => setTavilyKey(e.target.value)}
           placeholder="tvly-..."
           autoComplete="off"
-          className="rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-amber-500"
+          className="rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-[16px] leading-5 text-slate-100 outline-none focus:border-amber-500"
         />
         <div className="flex gap-2">
           <button
