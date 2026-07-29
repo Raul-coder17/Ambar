@@ -3,15 +3,16 @@
 // ALCANCE (4c): conectar, hablar, escuchar, silenciar, cerrar. Más el latido
 // que mantiene vivo el lock del servidor.
 //
+// 4d agregó el puente de tools: cuando llega un toolCall se ejecuta contra la
+// Edge Function `live` (acción 'tool') y se responde con sendToolResponse().
+//
 // LO QUE TODAVÍA NO ESTÁ, A PROPÓSITO:
-//   - tools (4d): el servidor manda el setup SIN functionDeclarations, así que
-//     el modelo no puede pedir nada que nadie pueda contestar.
 //   - resumption/reconexión (4e): si la conexión se cae, la sesión termina con
 //     un mensaje. No hay reintentos ni handles todavía.
 //   - cámara (4f) y fallback a texto (4g).
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { GoogleGenAI, Modality, type LiveServerMessage } from '@google/genai'
+import { GoogleGenAI, Modality, type LiveServerMessage, type LiveServerToolCall } from '@google/genai'
 import { supabase } from '../../lib/supabase'
 import { abrirCaptura, crearReproductor, type Captura, type Reproductor } from './audio'
 
@@ -27,6 +28,11 @@ export interface TurnoLive {
 
 /** Cada cuánto se le avisa al servidor que la sesión sigue viva (TTL: 90s). */
 const LATIDO_MS = 30_000
+
+// Tope de higiene, no de seguridad: nada del lado del servidor depende de
+// esto (la RLS ya escopea cada tool al usuario dueño del JWT). Sólo evita que
+// una sesión de voz larga entre en un loop de tool calls sin fin.
+const TOPE_TOOL_CALLS = 30
 
 interface RespuestaAbrir {
   token: string
@@ -65,6 +71,7 @@ export function useLiveSession() {
   const reproductorRef = useRef<Reproductor | null>(null)
   const sessionIdRef = useRef<string | null>(null)
   const latidoRef = useRef<number | null>(null)
+  const toolCallsRef = useRef(0)
   const wakeLockRef = useRef<WakeLockSentinel | null>(null)
   // Distingue un cierre pedido por el usuario de una caída de la conexión: sin
   // esto, cerrar a mano se reportaría como error.
@@ -126,9 +133,50 @@ export function useLiveSession() {
     [limpiar],
   )
 
+  // --- tools -----------------------------------------------------------------
+  //
+  // Gemini puede mandar varias functionCalls juntas en un mismo toolCall; se
+  // ejecutan todas en paralelo (Promise.all) y se responden juntas también,
+  // cada una con el `id` que trajo — es lo que Gemini usa para matchear
+  // respuesta con pedido (en modo texto no hace falta: ahí no hay más de una
+  // call pendiente a la vez dentro del mismo request).
+  const responderToolCall = useCallback(async (toolCall: LiveServerToolCall) => {
+    const llamadas = toolCall.functionCalls ?? []
+    if (llamadas.length === 0) return
+
+    const respuestas = await Promise.all(
+      llamadas.map(async (call) => {
+        const nombre = call.name ?? ''
+        toolCallsRef.current += 1
+
+        if (toolCallsRef.current > TOPE_TOOL_CALLS) {
+          return { id: call.id, name: nombre, response: { error: 'Se alcanzó el límite de herramientas de esta sesión de voz.' } }
+        }
+
+        const { data, error } = await supabase.functions.invoke<{ result?: Record<string, unknown>; error?: string }>(
+          'live',
+          { body: { action: 'tool', name: nombre, args: call.args ?? {} } },
+        )
+
+        if (error || !data) {
+          const cuerpo = await cuerpoDeError(error)
+          return { id: call.id, name: nombre, response: { error: cuerpo?.error ?? 'La herramienta falló al ejecutarse.' } }
+        }
+        if (data.error) {
+          return { id: call.id, name: nombre, response: { error: data.error } }
+        }
+        return { id: call.id, name: nombre, response: data.result ?? {} }
+      }),
+    )
+
+    sesionRef.current?.sendToolResponse({ functionResponses: respuestas })
+  }, [])
+
   // --- mensajes del servidor ----------------------------------------------
 
   const alMensaje = useCallback((m: LiveServerMessage) => {
+    if (m.toolCall) void responderToolCall(m.toolCall)
+
     const contenido = m.serverContent
 
     // El usuario interrumpió: hay que tirar TODO el audio ya encolado. Sin
@@ -163,7 +211,7 @@ export function useLiveSession() {
         return nuevos
       })
     }
-  }, [])
+  }, [responderToolCall])
 
   // --- abrir ---------------------------------------------------------------
 
@@ -174,6 +222,7 @@ export function useLiveSession() {
     setTurnos([])
     parcialRef.current = { usuario: '', ambar: '' }
     cerrandoRef.current = false
+    toolCallsRef.current = 0
     setEstado('conectando')
 
     // 1) El micrófono PRIMERO, antes de pedir el token.

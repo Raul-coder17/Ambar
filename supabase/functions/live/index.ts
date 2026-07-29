@@ -15,19 +15,21 @@
 // con la key descifrada, y el navegador recibe una credencial que dura minutos
 // y sólo sirve para la Live API.
 //
-// ALCANCE DE ESTE PASO (4b)
+// ALCANCE
 //
-// Implementadas: `abrir`, `latir`, `cerrar` — o sea el token y el ciclo de vida
-// del lock de sesión única. NO está el puente de tools (4d): las tools ya se
-// DECLARAN en el token, pero todavía no hay nada que las ejecute, así que si el
-// modelo emite un toolCall en esta etapa nadie le contesta. No usar Live de
-// verdad hasta que 4d esté.
+// `abrir`, `latir`, `cerrar`: el token y el ciclo de vida del lock de sesión
+// única (4b). `tool` (4d): el puente que ejecuta las tools que el cliente
+// recibe por WebSocket — mismo `ToolContext` y mismo registro (`tools.ts`) que
+// `ai-chat` usa en modo texto, así que `recordar_hecho` y `buscar_en_internet`
+// se comportan igual en los dos modos.
+//
+// Sin resumption/reconexión (4e) ni cámara (4f) todavía.
 
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { decryptApiKey } from '../_shared/crypto.ts'
 import { bloqueMemoria, type Hecho } from '../_shared/memoria.ts'
 import { systemInstructionLive } from '../_shared/prompt.ts'
-import { toolDeclarations } from '../_shared/tools.ts'
+import { findTool, toolDeclarations } from '../_shared/tools.ts'
 
 // Confirmado disponible para una key gratuita de AI Studio (smoke test de R1,
 // GET /v1beta/models). Es "-preview": el nombre puede cambiar, por eso vive en
@@ -100,15 +102,10 @@ function errorResponse(motivo: Motivo, error: string, status: number, extra: Rec
  * lo aporta el cliente en su propio setup (es donde viaja el handle al
  * reconectar). Ver el comentario de FIELD_MASK.
  */
-// Las tools se declaran recién en 4d, cuando exista el puente que las ejecuta.
-//
-// No es prudencia de más: declarar una tool sin nada que la conteste deja la
-// sesión colgada esperando un functionResponse que no va a llegar — y en modo
-// voz eso se percibe como que Ámbar se quedó mudo a mitad de la charla. El
-// smoke test de 4b ya validó que las declaraciones tienen forma correcta (el
-// setupComplete las aceptó), así que ponerlas en false no pierde esa
-// verificación; sólo pospone su uso hasta que haya quién responda.
-const TOOLS_HABILITADAS = false
+// 4d agregó la acción `tool` más abajo: ahora sí hay quien responda un
+// toolCall, así que declararlas ya no deja la sesión colgada esperando un
+// functionResponse que no llega.
+const TOOLS_HABILITADAS = true
 
 function buildSetup(systemInstruction: string) {
   const declaraciones = TOOLS_HABILITADAS ? toolDeclarations() : []
@@ -250,7 +247,7 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: 'Sesión inválida o expirada.' }, 401)
   }
 
-  let body: { action?: string; session_id?: string; handle?: string }
+  let body: { action?: string; session_id?: string; handle?: string; name?: string; args?: Record<string, unknown> }
   try {
     body = await req.json()
   } catch {
@@ -352,6 +349,39 @@ Deno.serve(async (req) => {
     // vigente === false significa que otra sesión tomó el lock: el cliente
     // tiene que cerrar la suya, no reintentar.
     return jsonResponse({ vigente: Boolean(vigente) })
+  }
+
+  // --- tool ------------------------------------------------------------------
+  //
+  // El cliente recibe un toolCall de Gemini por WebSocket y hace un POST acá
+  // en vez de ejecutar la tool en el navegador: `recordar_hecho` y
+  // `buscar_en_internet` tocan la base y descifran keys BYOK con el JWT y el
+  // `encryptionSecret` del servidor — el mismo motivo por el que en modo
+  // texto la ejecución vive en `ai-chat`, no en el cliente. No se valida
+  // `session_id` contra el lock de `sesiones_live`: la RLS de Postgres ya
+  // escopea `supabase` (creado con el Authorization del request) al usuario
+  // autenticado, igual que en `ai-chat`, así que no hay nada que una
+  // validación de sesión agregue en seguridad — sólo sería higiene extra, y
+  // el tope de tool calls (del lado del cliente) ya cubre eso.
+  if (body.action === 'tool') {
+    const name = typeof body.name === 'string' ? body.name : ''
+    if (!name) {
+      return jsonResponse({ error: 'Falta name.' }, 400)
+    }
+    const args = body.args && typeof body.args === 'object' ? body.args : {}
+
+    const tool = findTool(name)
+    if (!tool) {
+      return jsonResponse({ error: `Tool desconocida: ${name}` }, 400)
+    }
+
+    try {
+      const result = await tool.handler(args, { supabase, userId: user.id, encryptionSecret })
+      return jsonResponse({ result })
+    } catch (err) {
+      console.error(`[live] tool ${name} falló:`, err instanceof Error ? err.message : err)
+      return jsonResponse({ error: 'La herramienta falló al ejecutarse.' }, 500)
+    }
   }
 
   // --- cerrar --------------------------------------------------------------
