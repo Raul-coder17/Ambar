@@ -25,6 +25,7 @@ import {
   turnosRecientes,
   ultimoMensajeUsuario,
   TOP_K,
+  UMBRAL_SIMILITUD,
   type Hecho,
   type MensajeHistorial,
   type Recuerdo,
@@ -312,7 +313,23 @@ async function buscarRecuerdos(supabase: SupabaseClient, embedding: number[]): P
     console.error('[ai-chat] falló la búsqueda vectorial:', error.message)
     return []
   }
-  return filtrarRecuerdos((data ?? []) as Recuerdo[])
+
+  const crudos = (data ?? []) as Recuerdo[]
+  const filtrados = filtrarRecuerdos(crudos)
+
+  // Instrumentación para calibrar UMBRAL_SIMILITUD con uso real (post-Fase 2):
+  // sin esto no había forma de saber si 0.6 estaba descartando recuerdos que
+  // sí eran relevantes. Loguea la similitud de CADA resultado que trajo la
+  // búsqueda, aunque haya quedado abajo del umbral — incluso cuando ninguno
+  // sobrevive el filtro y `recuerdos` termina en 0.
+  const similitudes = crudos
+    .map((r) => `${r.similitud.toFixed(3)}${r.similitud >= UMBRAL_SIMILITUD ? '' : ' [descartado]'}`)
+    .join(', ')
+  console.log(
+    `[ai-chat] recuerdos: disponibles=${crudos.length} usados=${filtrados.length} similitudes=[${similitudes}]`,
+  )
+
+  return filtrados
 }
 
 // Guarda el intercambio embebido. Se llama DESPUÉS de haberle contestado al

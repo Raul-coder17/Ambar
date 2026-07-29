@@ -292,6 +292,15 @@ Resuelve el pendiente conocido #2 de Fase 2: hasta ahora `reemplaza` cubría cor
 - **Desplegado:** `ai-chat` y `live` redesplegadas (ambas incluyen `_shared/tools.ts` y `_shared/prompt.ts` en su bundle). Smoke test sin auth: 401 en las dos (arrancaron bien, sin error de boot).
 - **Pendiente conocido:** falta validación en vivo — que Raúl le pida a Ámbar (en texto y en Live) que olvide un dato ya guardado y confirme que (1) la fila se borra de verdad de `memoria_hechos`, (2) pedir que olvide algo que no existe da una respuesta clara en vez de que Ámbar invente que lo borró, y (3) Ámbar no dispara esta tool por su cuenta cuando el usuario solo menciona de pasada que algo cambió (ese caso sigue siendo `recordar_hecho` con `reemplaza`).
 
+## Decisiones técnicas — Instrumentación de RAG (2026-07-29)
+
+`UMBRAL_SIMILITUD = 0.6` y `TURNOS_RECIENTES = 8` (Fase 2) se fijaron a ojo, sin datos de uso real. Antes de tocar esos números hace falta ver qué está pasando de verdad — así que esta sesión es solo de instrumentación, no de calibración.
+
+- **`buscarRecuerdos()` (`ai-chat/index.ts`) ahora loguea la similitud de CADA resultado crudo del RPC**, no sólo cuántos sobrevivieron el filtro: `[ai-chat] recuerdos: disponibles=N usados=N similitudes=[0.812, 0.643 [descartado], ...]`. Antes, `filtrarRecuerdos()` descartaba los que quedaban debajo del umbral y esa información se perdía — no había forma de saber si 0.6 estaba tirando algo relevante. Ahora queda visible incluso cuando el resultado final es 0 recuerdos usados.
+- **El log resumen de contexto (`hechos=N recuerdos=N turnos=N`) no se tocó** — sigue siendo la línea de panorama general; el detalle de similitud vive en la línea nueva de `buscarRecuerdos()`, justo arriba en el mismo request.
+- **No se tocó `UMBRAL_SIMILITUD` ni `TURNOS_RECIENTES`.** El plan es dejar esto corriendo con uso real durante una semana y después revisar los logs juntos para decidir los números con datos, no adivinando.
+- **Sólo `ai-chat/index.ts`.** El modo Live no hace RAG contra el último mensaje (arma su system instruction sólo con hechos — ver `live/index.ts`), así que no hay nada de esto que instrumentar ahí. Ver `buscar_en_memoria` (D3) más abajo para cómo Live sí gana acceso a la memoria vectorial, pero a demanda vía tool y no como este RAG automático.
+
 ## Límites de Gemini y manejo de cuota (ya definido, no improvisar aquí)
 
 - **Live:** sin compresión, audio-solo dura 15 min, audio+video 2 min; conexión dura ~10 min. Solución: activar context window compression (ventana deslizante) + session resumption desde el día 1. Ventana de contexto: 128k tokens.
