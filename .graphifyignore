@@ -1,0 +1,17 @@
+# Dependencias y build — ruido puro para el grafo, no código propio.
+node_modules/
+dist/
+dist-ssr/
+build/
+
+# Entornos Python (por si algún día hay tooling propio) — no aplica hoy,
+# pero se deja igual que en Organizador-IA para consistencia entre proyectos.
+.venv/
+venv/
+
+# Control de versiones y config local.
+.git/
+.claude/
+
+# Sin carpetas de assets pesados hoy (public/ sólo tiene un ícono SVG
+# placeholder) — se agrega acá si aparecen imágenes/video grandes más adelante.

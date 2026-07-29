@@ -9,10 +9,22 @@
 - Cambios quirúrgicos: no tocar lógica que no se pidió.
 - Checkpoint de git antes de cambios riesgosos.
 - **Commit al final de cada fase, antes de empezar la siguiente** — aunque Raúl no lo pida cada vez. Motivo: dejar fases sin commitear las entrelaza en los mismos archivos (pasó con 4e/4f/4g, todas tocando `useLiveSession.ts`/`LiveScreen.tsx`, terminaron en un solo commit conjunto en vez de tres separados). No incluye el push — el push a GitHub sigue pidiéndose explícitamente.
+- **Correr `/graphify .` (o `graphify update` para incremental) al final de cada fase con cambios grandes, junto con el commit de esa fase** — Graphify tiene que mantenerse al día igual que este plan. Motivo: un grafo desactualizado es peor que no tenerlo — lleva a explorar el proyecto contra una foto vieja de sus módulos y conexiones. Ver "Instalación y configuración de Graphify" más abajo para el detalle de cómo quedó configurado en este proyecto.
 - Ante ambigüedad, parar y preguntar — nunca improvisar.
 - Documentación dual siempre: este `.md` actualizado + espacio de Notion en paralelo.
 - Nada se marca "Hecho" sin validación en vivo (probado de verdad, no solo revisado en el código).
 - Acciones de CLI/deploy (`supabase functions deploy`, etc.): Code las corre directamente y reporta al terminar, en vez de pedirle a Raúl que las pegue en una terminal.
+
+## Instalación y configuración de Graphify (2026-07-29)
+
+Mismo Graphify que ya se usa en Organizador-IA — es una instalación global vía `pipx` (no por proyecto), así que "instalarlo" acá fue verificar que ya estuviera disponible y armar la config propia de este repo.
+
+- **Intérprete:** `pipx` global, venv `graphifyy` (paquete `graphifyy` en PyPI). Se le agregó el extra opcional `graphifyy[sql]` (`tree_sitter_sql`) porque las 6 migraciones de `supabase/migrations/*.sql` no aportaban nada al grafo sin él.
+- **`.graphifyignore`** en la raíz: excluye `node_modules/`, `dist/`, `dist-ssr/`, `build/`, `.venv/`, `venv/`, `.git/`, `.claude/`. No hay carpeta de assets pesados hoy (`public/` sólo tiene un ícono SVG placeholder) — se agrega ahí si aparecen imágenes o video grandes más adelante.
+- **Primer grafo:** 41 archivos detectados (37 código, 3 docs, 1 imagen; `.env.example` se excluyó solo por el detector de sensibles — falso positivo, sin secretos reales, no hace falta tocarlo). Extracción estructural (AST) de código sin costo de LLM; extracción semántica de los 3 docs + 1 imagen vía subagentes (sin `GEMINI_API_KEY`/`GOOGLE_API_KEY` configurada). Resultado: 356 nodos, 483 aristas, 30 comunidades.
+- **Aviso de salud conocido:** el chequeo de integridad marcó 34 aristas con extremo colgante y 1 colapsada — vienen de que `PLAN_AMBAR.md` describe módulos de código en prosa ("la función que arma el token") en vez de citar su path real, así que esas menciones semánticas no siempre calzan con el ID que generó el AST para el archivo real. No corrompe el grafo; las aristas que involucran nodos `plan_ambar_*` hay que leerlas como "el plan habla de esto", no como una relación estructural verificada contra el código.
+- **Regla permanente:** ver la lista de "Reglas de trabajo" más arriba — correr `/graphify .` (o `graphify update`) al cierre de cada fase con cambios grandes, junto con el commit de esa fase.
+- **Outputs** en `graphify-out/`, versionados igual que en Organizador-IA (`graph.html`, `GRAPH_REPORT.md`, `graph.json`, `manifest.json`, `cost.json`) — sólo queda afuera el estado local de la máquina (`.graphify_python`, `.graphify_root`, `cache/*.tmp`), agregado a `.gitignore`.
 
 ## Objetivo
 

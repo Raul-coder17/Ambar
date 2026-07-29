@@ -14,6 +14,12 @@ dist-ssr
 .env
 .claude/
 
+# graphify local machine state (mismo criterio que Organizador-IA: el resto
+# de graphify-out/ SÍ se versiona — graph.json, GRAPH_REPORT.md, graph.html).
+graphify-out/.graphify_python
+graphify-out/.graphify_root
+graphify-out/cache/*.tmp
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
