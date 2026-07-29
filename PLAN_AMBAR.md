@@ -8,6 +8,7 @@
 - Para bugs o comportamiento inesperado: diagnóstico primero (investigar y reportar causa raíz sin tocar código) → decidir juntos → luz verde explícita antes de implementar.
 - Cambios quirúrgicos: no tocar lógica que no se pidió.
 - Checkpoint de git antes de cambios riesgosos.
+- **Commit al final de cada fase, antes de empezar la siguiente** — aunque Raúl no lo pida cada vez. Motivo: dejar fases sin commitear las entrelaza en los mismos archivos (pasó con 4e/4f/4g, todas tocando `useLiveSession.ts`/`LiveScreen.tsx`, terminaron en un solo commit conjunto en vez de tres separados). No incluye el push — el push a GitHub sigue pidiéndose explícitamente.
 - Ante ambigüedad, parar y preguntar — nunca improvisar.
 - Documentación dual siempre: este `.md` actualizado + espacio de Notion en paralelo.
 - Nada se marca "Hecho" sin validación en vivo (probado de verdad, no solo revisado en el código).
