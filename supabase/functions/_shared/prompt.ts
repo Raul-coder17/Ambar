@@ -36,7 +36,10 @@ export const SYSTEM_INSTRUCTION_BASE =
   '"acordate de esto" o "no se te olvide" — para entonces ya debería estar guardado. Ejemplos que SÍ deberían disparar ' +
   'el guardado automático: "mi juego favorito es tal", "siempre hago tal cosa los domingos", "no me gusta tal otra". ' +
   'NO guardes estados transitorios, de un solo momento, que ya no son ciertos después de esta charla: "hoy ando cansado", ' +
-  '"se me antoja pizza ahorita". Guardá solo lo que siga siendo cierto o relevante más adelante.'
+  '"se me antoja pizza ahorita". Guardá solo lo que siga siendo cierto o relevante más adelante.\n\n' +
+  'Llamá a olvidar_hecho SOLO cuando el usuario te pida explícitamente que borres o olvides un dato ("olvídate de que...", ' +
+  '"ya no es cierto que...", "borra ese dato"). A diferencia de recordar_hecho, nunca la llames por tu cuenta ni la uses ' +
+  'para corregir un dato viejo con uno nuevo — eso sigue siendo recordar_hecho con `reemplaza`.'
 
 // Fecha del servidor en el momento del request, en español. Sin esto el
 // modelo asume el año de su corte de entrenamiento y puede, por ejemplo,

@@ -158,6 +158,72 @@ const recordarHecho: Tool = {
   },
 }
 
+// --- olvidar_hecho -----------------------------------------------------------
+
+const olvidarHecho: Tool = {
+  declaration: {
+    name: 'olvidar_hecho',
+    description:
+      'Borra un dato que ya tenías guardado del usuario, cuando él te pide explícitamente que lo olvides o que ya no es cierto ' +
+      '("olvídate de que...", "ya no es cierto que...", "borra ese dato"). ' +
+      'NO la llames por tu cuenta: a diferencia de recordar_hecho, esta tool solo se usa cuando el usuario lo pide directo.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        hecho: {
+          type: 'STRING',
+          description:
+            'El texto EXACTO del hecho a borrar, copiado tal cual de la lista de lo que sabés del usuario.',
+        },
+      },
+      required: ['hecho'],
+    },
+  },
+
+  handler: async (args, ctx) => {
+    const propuesto = normalizarArgsHecho(args)
+    if (!propuesto) {
+      return {
+        borrado: false,
+        nota: `No pude identificar qué borrar: el texto vino vacío o pasa los ${MAX_LARGO_HECHO} caracteres. Seguí la conversación con normalidad.`,
+      }
+    }
+
+    const { data: existentes, error } = await ctx.supabase
+      .from('memoria_hechos')
+      .select('id, hecho')
+      .eq('user_id', ctx.userId)
+
+    if (error) {
+      console.error('[ai-chat] olvidar_hecho: no se pudieron leer los hechos:', error.message)
+      return { borrado: false, nota: 'No pude acceder a la memoria en este momento. Seguí la conversación con normalidad.' }
+    }
+
+    const porClave = new Map((existentes ?? []).map((f) => [clave(f.hecho as string), f.id as number]))
+    const aBorrarId = porClave.get(clave(propuesto.hecho))
+
+    if (aBorrarId == null) {
+      return {
+        borrado: false,
+        nota: 'No encontré ese dato guardado. Puede que ya no esté, o que el texto no coincida exacto con lo que tenés anotado.',
+      }
+    }
+
+    const { error: errDelete } = await ctx.supabase
+      .from('memoria_hechos')
+      .delete()
+      .eq('id', aBorrarId)
+      .eq('user_id', ctx.userId)
+
+    if (errDelete) {
+      console.error('[ai-chat] olvidar_hecho: falló el delete:', errDelete.message)
+      return { borrado: false, nota: 'No pude borrar ese dato. Seguí la conversación con normalidad.' }
+    }
+
+    return { borrado: true, nota: 'Borrado. No hace falta que se lo menciones al usuario.' }
+  },
+}
+
 // --- buscar_en_internet (Fase 3) --------------------------------------------
 
 const buscarEnInternetTool: Tool = {
@@ -217,7 +283,7 @@ const buscarEnInternetTool: Tool = {
 
 // ---------------------------------------------------------------------------
 
-export const TOOLS: Tool[] = [recordarHecho, buscarEnInternetTool]
+export const TOOLS: Tool[] = [recordarHecho, olvidarHecho, buscarEnInternetTool]
 
 export function toolDeclarations(): ToolDeclaration[] {
   return TOOLS.map((t) => t.declaration)
