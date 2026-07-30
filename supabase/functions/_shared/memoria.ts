@@ -62,6 +62,37 @@ export const TURNOS_RECIENTES = 8
 export const MAX_LARGO_HECHO = 300
 
 /**
+ * Valor reservado de `categoria` para los hechos que dicen CÓMO hablarle al
+ * usuario, en vez de QUÉ sabe de él.
+ *
+ * Es un valor convenido sobre la columna que YA existe, no una columna nueva:
+ * así no hace falta migración y sirve en los dos modos sin tocar ninguna de las
+ * dos Edge Functions, porque ambas arman su contexto con `bloqueMemoria`.
+ *
+ * El precio de elegir la columna existente es que quien decide la categoría es
+ * el modelo, así que esto sólo funciona junto con la guía de `prompt.ts` y la
+ * description de `categoria` en `tools.ts` — no son tres mejoras sumables, las
+ * otras dos son requisito de ésta.
+ */
+export const CATEGORIA_ESTILO = 'estilo'
+
+/**
+ * Si un hecho es una instrucción de estilo.
+ *
+ * Lo usan `bloqueMemoria` (para renderizarlo en su sección propia) y el handler
+ * de `recordar_hecho` (para decidir si la nota del functionResponse lleva la
+ * orden de aplicarlo ya). Vive acá en vez de duplicado en cada lado por lo
+ * mismo que `clave()`: si los dos criterios se desalinearan, el bloque de
+ * contexto y la nota discreparían sobre el mismo hecho.
+ *
+ * Normaliza aunque `normalizarArgsHecho` ya guarde en minúsculas: una fila
+ * escrita a mano desde el dashboard de Supabase no pasa por ahí.
+ */
+export function esHechoDeEstilo(hecho: Hecho): boolean {
+  return hecho.categoria?.trim().toLowerCase() === CATEGORIA_ESTILO
+}
+
+/**
  * Largo mínimo (pregunta + respuesta) para que un intercambio valga guardarse
  * en memoria_vectorial.
  *
@@ -142,12 +173,33 @@ export function valeGuardarIntercambio(pregunta: string, respuesta: string): boo
  *
  * Devuelve '' si no hay nada — un encabezado "Lo que sabés del usuario" vacío
  * es peor que nada: le sugiere al modelo que debería saber algo.
+ *
+ * TRES SECCIONES, Y EL ORDEN IMPORTA
+ *
+ * Las instrucciones de estilo (`CATEGORIA_ESTILO`) salen de la lista general y
+ * van en una sección propia, ÚLTIMA. El diagnóstico de simetría encontró que
+ * como un bullet más de la lista general perdían por rango contra
+ * SYSTEM_INSTRUCTION_BASE, que va primero y en imperativo ("respondé SIEMPRE...
+ * de forma breve y clara"): una nota en tercera persona no le gana a un
+ * "siempre" puesto antes.
+ *
+ * Última y no primera porque las dos Edge Functions concatenan este bloque al
+ * FINAL de su system instruction (`ai-chat/index.ts`, `live/index.ts`), así que
+ * el final de este string es la última línea que el modelo lee antes de
+ * `contents`. Además evita cerrar la system instruction con el "si no vienen al
+ * caso, ignoralos" de los recuerdos.
+ *
+ * Se MUEVEN, no se copian: si aparecieran en las dos secciones el modelo las
+ * vería dos veces con dos marcos contradictorios (uno dice "no lo recites", el
+ * otro "obedecelo").
  */
 export function bloqueMemoria(hechos: Hecho[], recuerdos: Recuerdo[]): string {
   const partes: string[] = []
+  const estilo = hechos.filter(esHechoDeEstilo)
+  const generales = hechos.filter((h) => !esHechoDeEstilo(h))
 
-  if (hechos.length > 0) {
-    const lineas = hechos.map((h) => (h.categoria ? `- ${h.hecho} (${h.categoria})` : `- ${h.hecho}`))
+  if (generales.length > 0) {
+    const lineas = generales.map((h) => (h.categoria ? `- ${h.hecho} (${h.categoria})` : `- ${h.hecho}`))
     partes.push(
       `Esto es lo que ya sabés del usuario. Usalo con naturalidad cuando venga al caso; no lo recites ni le avises que lo tenés anotado.\n${lineas.join('\n')}`,
     )
@@ -157,6 +209,19 @@ export function bloqueMemoria(hechos: Hecho[], recuerdos: Recuerdo[]): string {
     const lineas = recuerdos.map((r) => `- ${r.contenido.trim()}`)
     partes.push(
       `Fragmentos de conversaciones ANTERIORES con este usuario que se parecen a lo que acaba de escribir. Son recuerdos tuyos, no cosas que se hayan dicho recién: si los usás, hablá de ellos como algo que pasó antes. Si no vienen al caso, ignoralos.\n${lineas.join('\n')}`,
+    )
+  }
+
+  if (estilo.length > 0) {
+    // Sin el sufijo `(categoria)` que sí lleva la lista general: acá la
+    // categoría es siempre "estilo" y no aporta nada, y además el sufijo es una
+    // de las dos formas conocidas de romper el contrato de string exacto de
+    // `olvidar_hecho`/`reemplaza` (el modelo copia la línea entera, categoría
+    // incluida, y `clave()` no matchea). Ver el log de esa rama en tools.ts.
+    const lineas = estilo.map((h) => `- ${h.hecho}`)
+    partes.push(
+      'Así te pidió el usuario que le hables. Son instrucciones suyas sobre CÓMO responder y tienen prioridad sobre tus reglas de estilo por defecto: si algo dicho antes contradice a una de éstas, gana ésta. ' +
+        `Obedecelas en cada respuesta, incluida la próxima; no las recites ni le avises que las tenés anotadas.\n${lineas.join('\n')}`,
     )
   }
 

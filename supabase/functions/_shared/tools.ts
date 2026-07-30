@@ -24,7 +24,7 @@
 import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { decryptApiKey } from './crypto.ts'
 import { generarEmbedding } from './embeddings.ts'
-import { clave, MAX_LARGO_HECHO, normalizarArgsHecho } from './memoria.ts'
+import { CATEGORIA_ESTILO, clave, esHechoDeEstilo, MAX_LARGO_HECHO, normalizarArgsHecho } from './memoria.ts'
 import { buscarRecuerdos } from './recuerdos.ts'
 import { buscarEnInternet } from './tavily.ts'
 
@@ -68,6 +68,26 @@ export interface Tool {
 
 // --- recordar_hecho ---------------------------------------------------------
 
+/**
+ * Se le agrega a la nota del `functionResponse` cuando el hecho guardado es una
+ * instrucción de estilo (`CATEGORIA_ESTILO`).
+ *
+ * NO es cosmético: es el único canal que atraviesa la system instruction
+ * congelada del modo Live. Esa system instruction se mintea dentro del token
+ * efímero al abrir la sesión y no se puede refrescar mientras dure (hallazgo B
+ * del diagnóstico de simetría, todavía sin resolver), así que un hecho de
+ * estilo guardado a mitad de una charla hablada NO entra en `bloqueMemoria`
+ * hasta la sesión siguiente. La nota del functionResponse sí llega al modelo en
+ * ese mismo turno, y es lo que hace que el pedido tenga efecto ahora en vez de
+ * la próxima vez que abra el micrófono.
+ *
+ * En modo texto es redundante con `bloqueMemoria` (el próximo request ya lo
+ * arma de nuevo con el hecho adentro), pero se manda igual: cuesta una frase y
+ * cubre el turno actual, que es justo el que el usuario está mirando.
+ */
+const NOTA_APLICAR_ESTILO =
+  ' Aplicá esa indicación de estilo desde tu próxima respuesta y por el resto de esta conversación.'
+
 const recordarHecho: Tool = {
   declaration: {
     name: 'recordar_hecho',
@@ -86,7 +106,10 @@ const recordarHecho: Tool = {
         categoria: {
           type: 'STRING',
           description:
-            'Opcional. Una palabra para agrupar el dato: "identidad", "preferencia", "rutina", "trabajo", "salud", "relaciones". Si ninguna encaja, no la mandes.',
+            `Opcional. Una palabra para agrupar el dato: "${CATEGORIA_ESTILO}", "identidad", "preferencia", "rutina", "trabajo", "salud", "relaciones". ` +
+            `Usá "${CATEGORIA_ESTILO}" SÓLO cuando el dato sea una instrucción sobre CÓMO hablarle al usuario (largo de las respuestas, tono, formalidad, idioma, qué evitar decir): ` +
+            'esos hechos se le muestran aparte y con prioridad sobre tus reglas de estilo por defecto. Para todo lo demás que le guste o prefiera, usá "preferencia". ' +
+            'Si ninguna encaja, no la mandes.',
         },
         reemplaza: {
           type: 'STRING',
@@ -106,6 +129,18 @@ const recordarHecho: Tool = {
         nota: `No pude guardar eso: el hecho vino vacío o pasa los ${MAX_LARGO_HECHO} caracteres. Si es un resumen de la charla, no hace falta guardarlo. Seguí la conversación con normalidad.`,
       }
     }
+
+    // D del hallazgo C: si lo que se está guardando es una instrucción de
+    // estilo, la nota lleva además la orden de aplicarla ya. Se decide con el
+    // mismo predicado que usa `bloqueMemoria` para renderizarla en su sección
+    // propia — ver `esHechoDeEstilo` para por qué vive en memoria.ts.
+    //
+    // Sólo lo llevan las ramas donde el hecho quedó EN VIGOR (guardado, ya
+    // estaba, o actualizado). Las de fallo real siguen con su nota genérica:
+    // ahí no se guardó nada, y mandar al modelo a obedecer una indicación que
+    // no se persistió es prometer algo que la próxima sesión no va a cumplir.
+    const esEstilo = esHechoDeEstilo(propuesto)
+    const conEstilo = (nota: string) => (esEstilo ? `${nota}${NOTA_APLICAR_ESTILO}` : nota)
 
     // Los hechos del usuario son pocos (van TODOS en cada request), así que
     // traerlos enteros y comparar acá sale más barato que una consulta por
@@ -131,9 +166,18 @@ const recordarHecho: Tool = {
     if (yaEstaId != null) {
       if (aPisarId != null && aPisarId !== yaEstaId) {
         await ctx.supabase.from('memoria_hechos').delete().eq('id', aPisarId).eq('user_id', ctx.userId)
-        return { guardado: true, nota: 'Ya lo tenías anotado; borré el dato viejo que quedó obsoleto.' }
+        return { guardado: true, nota: conEstilo('Ya lo tenías anotado; borré el dato viejo que quedó obsoleto.') }
       }
-      return { guardado: false, nota: 'Eso ya estaba guardado, no hizo falta anotarlo de nuevo.' }
+      // Con una instrucción de estilo esta rama es la MÁS importante, no la
+      // menos: si el usuario la está repitiendo es porque no le hiciste caso la
+      // primera vez. Por eso acá no se usa `conEstilo` — se saca el "no hizo
+      // falta anotarlo de nuevo", que invita justo a lo contrario de obedecer.
+      return {
+        guardado: false,
+        nota: esEstilo
+          ? `Eso ya estaba guardado.${NOTA_APLICAR_ESTILO}`
+          : 'Eso ya estaba guardado, no hizo falta anotarlo de nuevo.',
+      }
     }
 
     // Corrección de un hecho existente: se pisa la fila, y el trigger
@@ -155,7 +199,7 @@ const recordarHecho: Tool = {
         console.error('[recordar_hecho] falló el update:', errUpdate.message)
         return { guardado: false, nota: 'No pude actualizar ese dato. Seguí la conversación con normalidad.' }
       }
-      return { guardado: true, nota: 'Actualicé el dato viejo con el nuevo.' }
+      return { guardado: true, nota: conEstilo('Actualicé el dato viejo con el nuevo.') }
     }
 
     const { error: errInsert } = await ctx.supabase
@@ -167,13 +211,18 @@ const recordarHecho: Tool = {
       // Es una carrera con otro request del mismo usuario: el hecho quedó
       // guardado igual, que es lo que importaba.
       if (errInsert.code === '23505') {
-        return { guardado: false, nota: 'Eso ya estaba guardado, no hizo falta anotarlo de nuevo.' }
+        return {
+          guardado: false,
+          nota: esEstilo
+            ? `Eso ya estaba guardado.${NOTA_APLICAR_ESTILO}`
+            : 'Eso ya estaba guardado, no hizo falta anotarlo de nuevo.',
+        }
       }
       console.error('[recordar_hecho] falló el insert:', errInsert.message)
       return { guardado: false, nota: 'No pude guardar ese dato. Seguí la conversación con normalidad.' }
     }
 
-    return { guardado: true, nota: 'Guardado. No hace falta que se lo menciones al usuario.' }
+    return { guardado: true, nota: conEstilo('Guardado. No hace falta que se lo menciones al usuario.') }
   },
 }
 
