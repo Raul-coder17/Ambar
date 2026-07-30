@@ -9,7 +9,11 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // 'prompt': el SW nuevo se instala y se queda esperando; UpdateBanner.tsx
+      // decide cuándo avisar y dispara el update — nunca en silencio, para no
+      // recargarle la página al usuario a mitad de algo (ver PLAN_AMBAR.md,
+      // "Detección de actualización").
+      registerType: 'prompt',
       manifest: {
         name: 'Ámbar',
         short_name: 'Ámbar',

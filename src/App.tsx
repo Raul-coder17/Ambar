@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Routes, Route } from 'react-router-dom'
 import { AuthProvider, useAuth } from './features/auth/AuthContext'
 import { AuthScreen } from './features/auth/AuthScreen'
 import { HomeScreen } from './features/home/HomeScreen'
+import { UpdateBanner } from './components/UpdateBanner'
 
 function Root() {
   const { session, loading } = useAuth()
@@ -21,6 +22,9 @@ function Root() {
 function App() {
   return (
     <AuthProvider>
+      {/* Fuera de las rutas a propósito: el aviso de actualización no depende
+          de haber iniciado sesión (también aplica en /auth). */}
+      <UpdateBanner />
       <BrowserRouter>
         <Root />
       </BrowserRouter>
