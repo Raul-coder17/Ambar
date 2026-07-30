@@ -1,9 +1,13 @@
 import { lazy, Suspense, useCallback, useState } from 'react'
+import { NavLink, Navigate, Routes, Route, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { ChatScreen } from '../chat/ChatScreen'
 import { ConversacionProvider } from '../chat/ConversacionContext'
 import { SettingsScreen } from '../settings/SettingsScreen'
+import { MemoriaScreen } from '../memoria/MemoriaScreen'
+import { ObjetivosScreen } from '../objetivos/ObjetivosScreen'
+import { IconAjustes, IconChat, IconMemoria, IconMic, IconObjetivos } from '../../lib/icons'
 
 // LiveScreen se carga aparte porque arrastra @google/genai, que solo (~450 KB
 // sin comprimir) pesa más que todo el resto de la app. En el chunk principal lo
@@ -16,21 +20,29 @@ import { SettingsScreen } from '../settings/SettingsScreen'
 // archivo ya está en disco.
 const LiveScreen = lazy(() => import('../live/LiveScreen').then((m) => ({ default: m.LiveScreen })))
 
-type Tab = 'chat' | 'ajustes'
+const TABS = [
+  { to: '/chat', label: 'Hablar', Icon: IconChat },
+  { to: '/memoria', label: 'Memoria', Icon: IconMemoria },
+  { to: '/objetivos', label: 'Objetivos', Icon: IconObjetivos },
+  { to: '/ajustes', label: 'Ajustes', Icon: IconAjustes },
+] as const
 
 function HomeScreenInterior() {
   const { session } = useAuth()
-  const [tab, setTab] = useState<Tab>('chat')
+  const navigate = useNavigate()
   const [live, setLive] = useState(false)
 
   // `irAChat` (4g): cuando LiveScreen se cierra por un fallback a texto (no
   // por el botón "Salir"), queremos aterrizar en la pestaña Chat aunque el
-  // usuario hubiera estado en Ajustes antes de abrir Live — es donde vive la
-  // transcripción y el banner que acaba de aparecer.
-  const cerrarLive = useCallback((irAChat?: boolean) => {
-    setLive(false)
-    if (irAChat) setTab('chat')
-  }, [])
+  // usuario hubiera estado en otra pestaña antes de abrir Live — es donde
+  // vive la transcripción y el banner que acaba de aparecer.
+  const cerrarLive = useCallback(
+    (irAChat?: boolean) => {
+      setLive(false)
+      if (irAChat) navigate('/chat')
+    },
+    [navigate],
+  )
 
   // LiveScreen se monta y desmonta con el modo: al desmontarse, el hook corre
   // su limpieza y suelta el lock del servidor. Mantenerla montada y oculta
@@ -43,7 +55,7 @@ function HomeScreenInterior() {
     return (
       <Suspense
         fallback={
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950 text-sm text-slate-500">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-base text-sm text-ink-muted">
             Abriendo el modo voz…
           </div>
         }
@@ -54,47 +66,60 @@ function HomeScreenInterior() {
   }
 
   return (
-    <div className="flex min-h-svh flex-col bg-slate-950">
-      <header className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
-        <div className="flex gap-1">
-          <button
-            onClick={() => setTab('chat')}
-            className={`rounded-md px-3 py-1.5 text-sm ${
-              tab === 'chat' ? 'bg-slate-800 text-amber-400' : 'text-slate-400'
-            }`}
-          >
-            Chat
-          </button>
-          <button
-            onClick={() => setTab('ajustes')}
-            className={`rounded-md px-3 py-1.5 text-sm ${
-              tab === 'ajustes' ? 'bg-slate-800 text-amber-400' : 'text-slate-400'
-            }`}
-          >
-            Ajustes
-          </button>
+    <div className="flex min-h-svh flex-col bg-base">
+      <header className="flex flex-shrink-0 items-center gap-3 px-5 pt-5 pb-3">
+        <div className="ambar-ember h-9 w-9 flex-shrink-0" />
+        <div className="min-w-0">
+          <p className="font-display text-lg leading-tight font-semibold text-ink">Ámbar</p>
+          <p className="truncate text-xs text-ink-muted">Escuchando cuando quieras</p>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="hidden font-mono text-xs text-slate-500 sm:inline">{session?.user.email}</span>
-          <button
-            onClick={() => supabase.auth.signOut()}
-            className="rounded-md border border-slate-700 px-3 py-1.5 text-xs hover:border-slate-500"
-          >
-            Cerrar sesión
-          </button>
-        </div>
+        <button
+          onClick={() => supabase.auth.signOut()}
+          title={session?.user.email}
+          className="ml-auto flex-shrink-0 rounded-input border border-border-soft px-3 py-1.5 text-xs text-ink-soft hover:border-amber"
+        >
+          Salir
+        </button>
       </header>
 
-      <main className="flex-1 overflow-hidden">{tab === 'chat' ? <ChatScreen /> : <SettingsScreen />}</main>
+      <main className="flex flex-1 flex-col overflow-hidden">
+        <Routes>
+          <Route index element={<Navigate to="/chat" replace />} />
+          <Route path="chat" element={<ChatScreen />} />
+          <Route path="memoria" element={<MemoriaScreen />} />
+          <Route path="objetivos" element={<ObjetivosScreen />} />
+          <Route path="ajustes" element={<SettingsScreen />} />
+          <Route path="*" element={<Navigate to="/chat" replace />} />
+        </Routes>
+      </main>
 
-      {/* FAB provisional: el Home real con el FAB definitivo es de Fase 7. */}
+      {/* Flota sobre el resto de la UI, siempre presente sin importar la
+          pestaña activa — igual que en mockup.html, donde vive afuera de
+          los <div class="screen">. */}
       <button
         onClick={() => setLive(true)}
         aria-label="Hablar con Ámbar"
-        className="fixed bottom-6 right-6 flex h-14 w-14 items-center justify-center rounded-full bg-amber-500 text-2xl shadow-lg shadow-amber-500/20"
+        className="ambar-fab fixed right-5 bottom-24 z-10 flex h-14 w-14 items-center justify-center text-ink-inverse"
       >
-        🎙️
+        <IconMic className="h-6 w-6" />
       </button>
+
+      <nav className="flex flex-shrink-0 border-t border-border-soft bg-surface px-2 pt-2.5 pb-[max(14px,env(safe-area-inset-bottom))]">
+        {TABS.map(({ to, label, Icon }) => (
+          <NavLink
+            key={to}
+            to={to}
+            className={({ isActive }) =>
+              `flex flex-1 flex-col items-center gap-1 py-1 text-[10.5px] ${
+                isActive ? 'text-amber-soft' : 'text-ink-muted'
+              }`
+            }
+          >
+            <Icon className="h-5 w-5" />
+            {label}
+          </NavLink>
+        ))}
+      </nav>
     </div>
   )
 }

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../auth/AuthContext'
 import { useConversacion, type ChatMessage } from './ConversacionContext'
+import { IconSend } from '../../lib/icons'
 
 interface AiChatResponse {
   respuesta_texto?: string
@@ -96,13 +97,9 @@ export function ChatScreen() {
   // motivo por el que Live se cortó merece quedar a la vista hasta que el
   // usuario decida que ya lo vio, no un toast que puede perderse.
   const banner = bannerFallback && (
-    <div className="flex items-start gap-3 border-b border-amber-500/30 bg-amber-500/10 px-4 py-2 text-xs text-amber-200">
+    <div className="flex items-start gap-3 border-b border-amber/30 bg-amber/10 px-4 py-2 text-xs text-amber-soft">
       <span className="flex-1">{bannerFallback}</span>
-      <button
-        onClick={descartarBanner}
-        aria-label="Descartar aviso"
-        className="shrink-0 text-amber-300 hover:text-amber-100"
-      >
+      <button onClick={descartarBanner} aria-label="Descartar aviso" className="shrink-0 text-amber-soft hover:text-ink">
         ✕
       </button>
     </div>
@@ -110,52 +107,57 @@ export function ChatScreen() {
 
   if (iaHabilitada === false) {
     return (
-      <div className="flex h-full flex-col">
+      <div className="flex min-h-0 flex-1 flex-col">
         {banner}
-        <div className="flex flex-1 flex-col items-center justify-center gap-2 px-4 py-16 text-center text-slate-100">
-          <p className="text-sm text-slate-400">Todavía no activaste la IA.</p>
-          <p className="text-sm text-slate-400">Guardá tu API key de Gemini en Ajustes para empezar a chatear.</p>
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 px-4 py-16 text-center">
+          <p className="text-sm text-ink-muted">Todavía no activaste la IA.</p>
+          <p className="text-sm text-ink-muted">Guardá tu API key de Gemini en Ajustes para empezar a chatear.</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="flex h-full flex-col text-slate-100">
+    <div className="flex min-h-0 flex-1 flex-col">
       {banner}
-      <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+      <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4">
         {mensajes.map((m, i) => (
           <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div
-              className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
-                m.role === 'user' ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 text-slate-100'
+              className={`max-w-[78%] rounded-bubble px-4 py-2.5 text-sm leading-relaxed ${
+                m.role === 'user'
+                  ? 'rounded-br-[5px] bg-clay font-medium text-ink-inverse'
+                  : 'rounded-bl-[5px] bg-surface-raised text-ink'
               }`}
             >
               {m.text}
             </div>
           </div>
         ))}
-        {sending && <div className="text-sm text-slate-500">Ámbar está escribiendo…</div>}
+        {sending && <div className="text-sm text-ink-muted">Ámbar está escribiendo…</div>}
         <div ref={listEndRef} />
       </div>
 
-      {error && <p className="px-4 pb-2 text-sm text-red-400">{error}</p>}
+      {error && <p className="px-5 pb-2 text-sm text-red-400">{error}</p>}
 
-      <form onSubmit={handleSend} className="flex gap-2 border-t border-slate-800 px-4 py-3">
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Escribí un mensaje…"
-          disabled={sending || iaHabilitada === null}
-          className="flex-1 rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-[16px] leading-5 text-slate-100 outline-none focus:border-amber-500 disabled:opacity-50"
-        />
-        <button
-          type="submit"
-          disabled={sending || !input.trim() || iaHabilitada === null}
-          className="rounded-md bg-amber-500 px-4 py-2 text-sm font-medium text-slate-950 disabled:opacity-50"
-        >
-          Enviar
-        </button>
+      <form onSubmit={handleSend} className="flex items-center gap-2.5 px-4 py-3">
+        <div className="flex flex-1 items-center rounded-pill border border-border-soft bg-surface-raised py-1.5 pr-1.5 pl-4">
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Escribí un mensaje…"
+            disabled={sending || iaHabilitada === null}
+            className="flex-1 bg-transparent text-[16px] leading-5 text-ink outline-none placeholder:text-ink-muted disabled:opacity-50"
+          />
+          <button
+            type="submit"
+            disabled={sending || !input.trim() || iaHabilitada === null}
+            aria-label="Enviar"
+            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-amber text-ink-inverse disabled:opacity-50"
+          >
+            <IconSend className="h-4 w-4" />
+          </button>
+        </div>
       </form>
     </div>
   )

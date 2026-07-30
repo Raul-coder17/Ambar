@@ -35,67 +35,77 @@ export function AuthScreen() {
   }
 
   return (
-    <div className="flex min-h-svh items-center justify-center bg-slate-950 px-4">
-      <form
-        onSubmit={handleSubmit}
-        className="w-full max-w-sm space-y-4 rounded-xl border border-slate-800 bg-slate-900 p-6"
-      >
-        <h1 className="text-xl font-semibold text-slate-100">
-          {mode === 'login' ? 'Entrar a Ámbar' : 'Crear cuenta'}
-        </h1>
-
-        <div className="space-y-1">
-          <label htmlFor="email" className="block text-sm text-slate-400">
-            Email
-          </label>
-          <input
-            id="email"
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none focus:border-amber-500"
-          />
+    <div className="flex min-h-svh items-center justify-center bg-base px-4">
+      <div className="w-full max-w-sm">
+        <div className="mb-8 flex flex-col items-center gap-3 text-center">
+          <div className="ambar-ember h-12 w-12" />
+          <div>
+            <p className="font-display text-2xl font-semibold text-ink">Ámbar</p>
+            <p className="mt-0.5 text-sm text-ink-muted">Escuchando cuando quieras</p>
+          </div>
         </div>
 
-        <div className="space-y-1">
-          <label htmlFor="password" className="block text-sm text-slate-400">
-            Contraseña
-          </label>
-          <input
-            id="password"
-            type="password"
-            required
-            minLength={6}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none focus:border-amber-500"
-          />
-        </div>
-
-        {error && <p className="text-sm text-red-400">{error}</p>}
-        {notice && <p className="text-sm text-emerald-400">{notice}</p>}
-
-        <button
-          type="submit"
-          disabled={submitting}
-          className="w-full rounded-md bg-amber-500 px-3 py-2 font-medium text-slate-950 disabled:opacity-50"
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-4 rounded-card border border-border-soft bg-surface p-6"
         >
-          {submitting ? 'Un momento...' : mode === 'login' ? 'Entrar' : 'Registrarme'}
-        </button>
+          <h1 className="font-display text-lg font-semibold text-ink">
+            {mode === 'login' ? 'Entrar a Ámbar' : 'Crear cuenta'}
+          </h1>
 
-        <button
-          type="button"
-          onClick={() => {
-            setMode(mode === 'login' ? 'signup' : 'login')
-            setError(null)
-            setNotice(null)
-          }}
-          className="w-full text-sm text-slate-400 hover:text-slate-200"
-        >
-          {mode === 'login' ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Entra'}
-        </button>
-      </form>
+          <div className="space-y-1">
+            <label htmlFor="email" className="block text-sm text-ink-soft">
+              Email
+            </label>
+            <input
+              id="email"
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full rounded-input border border-border-soft bg-surface-raised px-3 py-2 text-[16px] leading-5 text-ink outline-none placeholder:text-ink-muted focus:border-amber"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label htmlFor="password" className="block text-sm text-ink-soft">
+              Contraseña
+            </label>
+            <input
+              id="password"
+              type="password"
+              required
+              minLength={6}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full rounded-input border border-border-soft bg-surface-raised px-3 py-2 text-[16px] leading-5 text-ink outline-none placeholder:text-ink-muted focus:border-amber"
+            />
+          </div>
+
+          {error && <p className="text-sm text-red-400">{error}</p>}
+          {notice && <p className="text-sm text-emerald-400">{notice}</p>}
+
+          <button
+            type="submit"
+            disabled={submitting}
+            className="w-full rounded-pill bg-amber px-3 py-2.5 font-medium text-ink-inverse disabled:opacity-50"
+          >
+            {submitting ? 'Un momento...' : mode === 'login' ? 'Entrar' : 'Registrarme'}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setMode(mode === 'login' ? 'signup' : 'login')
+              setError(null)
+              setNotice(null)
+            }}
+            className="w-full text-sm text-ink-muted hover:text-ink-soft"
+          >
+            {mode === 'login' ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Entra'}
+          </button>
+        </form>
+      </div>
     </div>
   )
 }

@@ -1,6 +1,69 @@
 @import "tailwindcss";
 
+/* Tokens tomados 1:1 de mockup/mockup.html (dirección de diseño aprobada) —
+   Tailwind v4 genera solas las utilidades (bg-base, text-ink, font-display,
+   rounded-card...) a partir de estas variables, sin tailwind.config.js. */
+@theme {
+  --color-base: #0f1a2e;
+  --color-surface: #162138;
+  --color-surface-raised: #1e2d4a;
+  --color-border-soft: #2b3c5c;
+  --color-amber: #e8a64a;
+  --color-amber-soft: #f0bd72;
+  --color-clay: #c48c54;
+  --color-clay-soft: #d6a06a;
+  --color-ink: #f2ede4;
+  --color-ink-soft: #aab6cc;
+  --color-ink-muted: #7889a5;
+  /* texto/íconos sobre rellenos sólidos de amber o clay (botones, FAB, burbuja
+     del usuario) — mismo #2a1610 que usa mockup.html en los cuatro casos. */
+  --color-ink-inverse: #2a1610;
+  --color-sage: #8fae7d;
+
+  --font-display: 'Fraunces', serif;
+  --font-body: 'Karla', sans-serif;
+
+  --radius-input: 10px;
+  --radius-card: 16px;
+  --radius-bubble: 18px;
+  --radius-pill: 24px;
+}
+
 body {
   margin: 0;
   min-height: 100svh;
+  background: var(--color-base);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+}
+
+/* La "brasa" que respira: avatar de Ámbar y FAB de voz. Valores calcados de
+   mockup.html (gradiente + animación) — extraídos acá porque se repiten en
+   más de una pantalla. */
+@keyframes ambar-breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 10px 1px rgba(232, 166, 74, 0.35);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 18px 4px rgba(232, 166, 74, 0.6);
+    transform: scale(1.06);
+  }
+}
+
+.ambar-ember {
+  border-radius: 9999px;
+  background: radial-gradient(circle at 35% 30%, var(--color-amber-soft), var(--color-amber) 55%, var(--color-clay) 100%);
+  animation: ambar-breathe 3.2s ease-in-out infinite;
+}
+
+/* FAB de voz: mismo gradiente que la brasa pero sin la animación de latido
+   (mockup.html no la anima, sólo la brasa del header/placeholder respira). */
+.ambar-fab {
+  border-radius: 9999px;
+  background: radial-gradient(circle at 35% 30%, var(--color-amber-soft), var(--color-amber));
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.2),
+    0 8px 20px rgba(232, 166, 74, 0.35);
 }
