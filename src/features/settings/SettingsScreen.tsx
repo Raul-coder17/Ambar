@@ -146,29 +146,29 @@ export function SettingsScreen() {
   }
 
   return (
-    <div className="flex flex-col gap-6 px-4 py-6 text-slate-100">
+    <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-5 py-5">
       <div>
-        <h1 className="text-lg font-semibold">Ajustes</h1>
-        <p className="mt-1 text-sm text-slate-400">
+        <h1 className="font-display text-lg font-semibold text-ink">Ajustes</h1>
+        <p className="mt-1 text-sm text-ink-muted">
           Guardá tu propia API key de Gemini. Se cifra antes de guardarse — nunca queda en texto plano.
         </p>
       </div>
 
-      <div className="rounded-md border border-slate-800 bg-slate-900 p-4">
-        <p className="text-sm">
+      <div className="rounded-card border border-border-soft bg-surface p-4">
+        <p className="text-sm text-ink">
           Estado:{' '}
           {loadingEstado ? (
-            <span className="text-slate-500">cargando…</span>
+            <span className="text-ink-muted">cargando…</span>
           ) : iaHabilitada ? (
-            <span className="text-emerald-400">activada</span>
+            <span className="text-sage">activada</span>
           ) : (
-            <span className="text-slate-500">desactivada</span>
+            <span className="text-ink-muted">desactivada</span>
           )}
         </p>
       </div>
 
-      <form onSubmit={handleSave} className="flex flex-col gap-3">
-        <label htmlFor="gemini-key" className="text-sm text-slate-300">
+      <form onSubmit={handleSave} className="flex flex-col gap-3 rounded-card border border-border-soft bg-surface p-4">
+        <label htmlFor="gemini-key" className="text-sm text-ink-soft">
           API key de Gemini
         </label>
         <input
@@ -178,13 +178,13 @@ export function SettingsScreen() {
           onChange={(e) => setApiKey(e.target.value)}
           placeholder="AIza..."
           autoComplete="off"
-          className="rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-[16px] leading-5 text-slate-100 outline-none focus:border-amber-500"
+          className="rounded-input border border-border-soft bg-surface-raised px-3 py-2 text-[16px] leading-5 text-ink outline-none placeholder:text-ink-muted focus:border-amber"
         />
         <div className="flex gap-2">
           <button
             type="submit"
             disabled={saving || !apiKey.trim()}
-            className="rounded-md bg-amber-500 px-4 py-2 text-sm font-medium text-slate-950 disabled:opacity-50"
+            className="rounded-pill bg-amber px-4 py-2 text-sm font-medium text-ink-inverse disabled:opacity-50"
           >
             {saving ? 'Guardando…' : 'Guardar clave'}
           </button>
@@ -193,7 +193,7 @@ export function SettingsScreen() {
               type="button"
               onClick={handleRemove}
               disabled={saving}
-              className="rounded-md border border-slate-700 px-4 py-2 text-sm hover:border-slate-500 disabled:opacity-50"
+              className="rounded-input border border-amber px-4 py-2 text-sm text-amber-soft disabled:opacity-50"
             >
               Desactivar
             </button>
@@ -201,32 +201,35 @@ export function SettingsScreen() {
         </div>
       </form>
 
-      {error && <p className="text-sm text-red-400">{error}</p>}
-      {info && <p className="text-sm text-emerald-400">{info}</p>}
+      {error && <p className="-mt-3 text-sm text-red-400">{error}</p>}
+      {info && <p className="-mt-3 text-sm text-sage">{info}</p>}
 
-      <div className="border-t border-slate-800 pt-6">
-        <h2 className="text-base font-semibold">Búsqueda web</h2>
-        <p className="mt-1 text-sm text-slate-400">
+      <div className="border-t border-border-soft pt-2">
+        <h2 className="font-display text-base font-semibold text-ink">Búsqueda web</h2>
+        <p className="mt-1 text-sm text-ink-muted">
           Guardá tu API key de Tavily para que Ámbar pueda buscar en internet. Se cifra antes de
           guardarse, igual que la de Gemini.
         </p>
       </div>
 
-      <div className="rounded-md border border-slate-800 bg-slate-900 p-4">
-        <p className="text-sm">
+      <div className="rounded-card border border-border-soft bg-surface p-4">
+        <p className="text-sm text-ink">
           Estado:{' '}
           {loadingEstado ? (
-            <span className="text-slate-500">cargando…</span>
+            <span className="text-ink-muted">cargando…</span>
           ) : tavilyConfigurada ? (
-            <span className="text-emerald-400">configurada</span>
+            <span className="text-sage">configurada</span>
           ) : (
-            <span className="text-slate-500">no configurada</span>
+            <span className="text-ink-muted">no configurada</span>
           )}
         </p>
       </div>
 
-      <form onSubmit={handleSaveTavily} className="flex flex-col gap-3">
-        <label htmlFor="tavily-key" className="text-sm text-slate-300">
+      <form
+        onSubmit={handleSaveTavily}
+        className="flex flex-col gap-3 rounded-card border border-border-soft bg-surface p-4"
+      >
+        <label htmlFor="tavily-key" className="text-sm text-ink-soft">
           API key de Tavily
         </label>
         <input
@@ -236,13 +239,13 @@ export function SettingsScreen() {
           onChange={(e) => setTavilyKey(e.target.value)}
           placeholder="tvly-..."
           autoComplete="off"
-          className="rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-[16px] leading-5 text-slate-100 outline-none focus:border-amber-500"
+          className="rounded-input border border-border-soft bg-surface-raised px-3 py-2 text-[16px] leading-5 text-ink outline-none placeholder:text-ink-muted focus:border-amber"
         />
         <div className="flex gap-2">
           <button
             type="submit"
             disabled={savingTavily || !tavilyKey.trim()}
-            className="rounded-md bg-amber-500 px-4 py-2 text-sm font-medium text-slate-950 disabled:opacity-50"
+            className="rounded-pill bg-amber px-4 py-2 text-sm font-medium text-ink-inverse disabled:opacity-50"
           >
             {savingTavily ? 'Guardando…' : 'Guardar clave'}
           </button>
@@ -251,7 +254,7 @@ export function SettingsScreen() {
               type="button"
               onClick={handleRemoveTavily}
               disabled={savingTavily}
-              className="rounded-md border border-slate-700 px-4 py-2 text-sm hover:border-slate-500 disabled:opacity-50"
+              className="rounded-input border border-amber px-4 py-2 text-sm text-amber-soft disabled:opacity-50"
             >
               Quitar
             </button>
@@ -259,8 +262,8 @@ export function SettingsScreen() {
         </div>
       </form>
 
-      {tavilyError && <p className="text-sm text-red-400">{tavilyError}</p>}
-      {tavilyInfo && <p className="text-sm text-emerald-400">{tavilyInfo}</p>}
+      {tavilyError && <p className="-mt-3 text-sm text-red-400">{tavilyError}</p>}
+      {tavilyInfo && <p className="-mt-3 text-sm text-sage">{tavilyInfo}</p>}
     </div>
   )
 }

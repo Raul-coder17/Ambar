@@ -78,12 +78,12 @@ export function LiveScreen({ onCerrar }: { onCerrar: (irAChat?: boolean) => void
               : 'Listo para hablar'
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-slate-950 text-slate-100">
-      <header className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
-        <h1 className="text-sm font-medium text-amber-400">Modo voz</h1>
+    <div className="fixed inset-0 z-50 flex flex-col bg-base text-ink">
+      <header className="flex items-center justify-between border-b border-border-soft px-4 py-3">
+        <h1 className="font-display text-sm font-medium text-amber-soft">Modo voz</h1>
         <button
           onClick={handleSalir}
-          className="rounded-md border border-slate-700 px-3 py-1.5 text-xs hover:border-slate-500"
+          className="rounded-input border border-border-soft px-3 py-1.5 text-xs text-ink-soft hover:border-amber"
         >
           Salir
         </button>
@@ -92,45 +92,47 @@ export function LiveScreen({ onCerrar }: { onCerrar: (irAChat?: boolean) => void
       {/* Indicador de cámara: no alcanza con el ícono del sistema operativo,
           que se puede pasar por alto. Esta franja es imposible de ignorar. */}
       {camaraActiva && (
-        <div className="flex items-center justify-center gap-2 border-b border-amber-500/30 bg-amber-500/10 px-4 py-1.5 text-xs text-amber-300">
-          <span className="h-2 w-2 animate-pulse rounded-full bg-amber-400" />
+        <div className="flex items-center justify-center gap-2 border-b border-amber/30 bg-amber/10 px-4 py-1.5 text-xs text-amber-soft">
+          <span className="h-2 w-2 animate-pulse rounded-full bg-amber" />
           Cámara activa — Ámbar puede verte
         </div>
       )}
 
       <div className="flex flex-1 flex-col items-center justify-center gap-6 px-6">
         {/* El círculo es el único indicador de estado: en una pantalla que se
-            mira de reojo mientras se habla, un texto chico no se lee. */}
+            mira de reojo mientras se habla, un texto chico no se lee.
+            Cuando Ámbar habla, respira con la misma animación que la brasa
+            del header/FAB — mismo motivo de marca, no una coincidencia. */}
         <div
           className={`flex h-32 w-32 items-center justify-center rounded-full transition-all ${
             estado === 'activa'
               ? hablando
-                ? 'scale-110 bg-amber-500/30 ring-4 ring-amber-500'
+                ? 'animate-[ambar-breathe_3.2s_ease-in-out_infinite] bg-amber/30 ring-4 ring-amber'
                 : silenciado
-                  ? 'bg-slate-800 ring-4 ring-slate-700'
-                  : 'bg-amber-500/10 ring-4 ring-amber-500/50'
+                  ? 'bg-surface-raised ring-4 ring-border-soft'
+                  : 'bg-amber/10 ring-4 ring-amber/50'
               : estado === 'conectando' || estado === 'reconectando'
-                ? 'animate-pulse bg-slate-800 ring-4 ring-slate-700'
+                ? 'animate-pulse bg-surface-raised ring-4 ring-border-soft'
                 : estado === 'conflicto'
-                  ? 'bg-amber-500/10 ring-4 ring-amber-500/40'
-                  : 'bg-slate-900 ring-4 ring-slate-800'
+                  ? 'bg-amber/10 ring-4 ring-amber/40'
+                  : 'bg-surface ring-4 ring-border-soft'
           }`}
         >
           <span className="text-3xl">{estado === 'conflicto' ? '⚠️' : silenciado && estado === 'activa' ? '🔇' : '🎙️'}</span>
         </div>
 
-        <p className="text-sm text-slate-400">{leyenda}</p>
+        <p className="text-sm text-ink-muted">{leyenda}</p>
 
         {error && <p className="max-w-xs text-center text-sm text-red-400">{error}</p>}
 
         {estado === 'conflicto' && esperaSegundos !== null && (
-          <p className="max-w-xs text-center text-xs text-slate-500">
+          <p className="max-w-xs text-center text-xs text-ink-muted">
             También se libera sola en {esperaSegundos}s si no hacés nada.
           </p>
         )}
 
         {estado === 'activa' && (
-          <p className="max-w-xs text-center text-xs text-slate-500">
+          <p className="max-w-xs text-center text-xs text-ink-muted">
             Mantené la pantalla encendida: si se bloquea, el audio puede cortarse.
           </p>
         )}
@@ -139,14 +141,14 @@ export function LiveScreen({ onCerrar }: { onCerrar: (irAChat?: boolean) => void
           {estado === 'conflicto' ? (
             <button
               onClick={() => void abrir(true)}
-              className="rounded-full bg-amber-500 px-6 py-3 text-sm font-medium text-slate-950"
+              className="rounded-pill bg-amber px-6 py-3 text-sm font-medium text-ink-inverse"
             >
               Cerrar la otra sesión y continuar acá
             </button>
           ) : estado === 'inactiva' || estado === 'error' ? (
             <button
               onClick={() => void abrir()}
-              className="rounded-full bg-amber-500 px-6 py-3 text-sm font-medium text-slate-950"
+              className="rounded-pill bg-amber px-6 py-3 text-sm font-medium text-ink-inverse"
             >
               {estado === 'error' ? 'Volver a conectar' : 'Empezar a hablar'}
             </button>
@@ -155,20 +157,20 @@ export function LiveScreen({ onCerrar }: { onCerrar: (irAChat?: boolean) => void
               <button
                 onClick={alternarSilencio}
                 disabled={estado !== 'activa'}
-                className="rounded-full border border-slate-700 px-6 py-3 text-sm hover:border-slate-500 disabled:opacity-50"
+                className="rounded-pill border border-border-soft px-6 py-3 text-sm text-ink-soft hover:border-amber disabled:opacity-50"
               >
                 {silenciado ? 'Activar micrófono' : 'Silenciar'}
               </button>
               <button
                 onClick={() => void alternarCamara()}
                 disabled={estado !== 'activa'}
-                className="rounded-full border border-slate-700 px-6 py-3 text-sm hover:border-slate-500 disabled:opacity-50"
+                className="rounded-pill border border-border-soft px-6 py-3 text-sm text-ink-soft hover:border-amber disabled:opacity-50"
               >
                 {camaraActiva ? 'Apagar cámara' : 'Prender cámara'}
               </button>
               <button
                 onClick={cerrar}
-                className="rounded-full bg-red-500/90 px-6 py-3 text-sm font-medium text-slate-950"
+                className="rounded-pill bg-red-500/90 px-6 py-3 text-sm font-medium text-ink-inverse"
               >
                 Cortar
               </button>
@@ -180,15 +182,15 @@ export function LiveScreen({ onCerrar }: { onCerrar: (irAChat?: boolean) => void
       {/* Transcripción: además de ser útil para seguir la charla, es la prueba
           visible de que las transcripciones están llegando — que es lo que va a
           alimentar el fallback a texto (4g) y la memoria. */}
-      <div className="max-h-56 space-y-2 overflow-y-auto border-t border-slate-800 px-4 py-3">
+      <div className="max-h-56 space-y-2 overflow-y-auto border-t border-border-soft px-4 py-3">
         {turnos.length === 0 ? (
-          <p className="text-center text-xs text-slate-600">La transcripción va a aparecer acá.</p>
+          <p className="text-center text-xs text-ink-muted">La transcripción va a aparecer acá.</p>
         ) : (
           turnos.map((t, i) => (
             <div key={i} className={`flex ${t.rol === 'usuario' ? 'justify-end' : 'justify-start'}`}>
               <div
-                className={`max-w-[80%] rounded-lg px-3 py-1.5 text-sm ${
-                  t.rol === 'usuario' ? 'bg-amber-500/20 text-amber-100' : 'bg-slate-800 text-slate-200'
+                className={`max-w-[80%] rounded-bubble px-3 py-1.5 text-sm ${
+                  t.rol === 'usuario' ? 'bg-amber/20 text-amber-soft' : 'bg-surface-raised text-ink'
                 }`}
               >
                 {t.texto}

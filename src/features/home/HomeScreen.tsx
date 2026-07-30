@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useState } from 'react'
-import { NavLink, Navigate, Routes, Route, useNavigate } from 'react-router-dom'
+import { Link, NavLink, Navigate, Routes, Route, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { ChatScreen } from '../chat/ChatScreen'
@@ -7,7 +7,8 @@ import { ConversacionProvider } from '../chat/ConversacionContext'
 import { SettingsScreen } from '../settings/SettingsScreen'
 import { MemoriaScreen } from '../memoria/MemoriaScreen'
 import { ObjetivosScreen } from '../objetivos/ObjetivosScreen'
-import { IconAjustes, IconChat, IconMemoria, IconMic, IconObjetivos } from '../../lib/icons'
+import { HistorialScreen } from '../historial/HistorialScreen'
+import { IconAjustes, IconChat, IconHistorial, IconMemoria, IconMic, IconObjetivos } from '../../lib/icons'
 
 // LiveScreen se carga aparte porque arrastra @google/genai, que solo (~450 KB
 // sin comprimir) pesa más que todo el resto de la app. En el chunk principal lo
@@ -66,20 +67,29 @@ function HomeScreenInterior() {
   }
 
   return (
-    <div className="flex min-h-svh flex-col bg-base">
+    <div className="flex h-svh flex-col bg-base">
       <header className="flex flex-shrink-0 items-center gap-3 px-5 pt-5 pb-3">
         <div className="ambar-ember h-9 w-9 flex-shrink-0" />
         <div className="min-w-0">
           <p className="font-display text-lg leading-tight font-semibold text-ink">Ámbar</p>
           <p className="truncate text-xs text-ink-muted">Escuchando cuando quieras</p>
         </div>
-        <button
-          onClick={() => supabase.auth.signOut()}
-          title={session?.user.email}
-          className="ml-auto flex-shrink-0 rounded-input border border-border-soft px-3 py-1.5 text-xs text-ink-soft hover:border-amber"
-        >
-          Salir
-        </button>
+        <div className="ml-auto flex flex-shrink-0 items-center gap-2">
+          <Link
+            to="/historial"
+            aria-label="Historial"
+            className="rounded-input border border-border-soft p-1.5 text-ink-soft hover:border-amber"
+          >
+            <IconHistorial className="h-4 w-4" />
+          </Link>
+          <button
+            onClick={() => supabase.auth.signOut()}
+            title={session?.user.email}
+            className="rounded-input border border-border-soft px-3 py-1.5 text-xs text-ink-soft hover:border-amber"
+          >
+            Salir
+          </button>
+        </div>
       </header>
 
       <main className="flex flex-1 flex-col overflow-hidden">
@@ -88,6 +98,7 @@ function HomeScreenInterior() {
           <Route path="chat" element={<ChatScreen />} />
           <Route path="memoria" element={<MemoriaScreen />} />
           <Route path="objetivos" element={<ObjetivosScreen />} />
+          <Route path="historial" element={<HistorialScreen />} />
           <Route path="ajustes" element={<SettingsScreen />} />
           <Route path="*" element={<Navigate to="/chat" replace />} />
         </Routes>
