@@ -46,6 +46,18 @@ export type ToolHandler = (args: Record<string, unknown>, ctx: ToolContext) => P
 
 export type ModoConversacion = 'texto' | 'live'
 
+/**
+ * El nombre de `olvidar_hecho`, exportado porque hay quien necesita reconocer
+ * la call SIN ejecutarla: `ai-chat/index.ts` la detecta en el loop para no
+ * guardar ese intercambio en memoria_vectorial (P1, ver el comentario de
+ * `seOlvidoUnHecho` allá).
+ *
+ * El cliente (`useLiveSession.ts`) hace lo mismo para el modo Live pero con su
+ * propio literal: no puede importar de `_shared/` (código de Deno, con imports
+ * por URL) desde el bundle de Vite.
+ */
+export const OLVIDAR_HECHO = 'olvidar_hecho'
+
 export interface Tool {
   declaration: ToolDeclaration
   handler: ToolHandler
@@ -105,7 +117,7 @@ const recordarHecho: Tool = {
       .eq('user_id', ctx.userId)
 
     if (error) {
-      console.error('[ai-chat] recordar_hecho: no se pudieron leer los hechos:', error.message)
+      console.error('[recordar_hecho] no se pudieron leer los hechos:', error.message)
       return { guardado: false, nota: 'No pude acceder a la memoria en este momento. Seguí la conversación con normalidad.' }
     }
 
@@ -140,7 +152,7 @@ const recordarHecho: Tool = {
         .eq('user_id', ctx.userId)
 
       if (errUpdate) {
-        console.error('[ai-chat] recordar_hecho: falló el update:', errUpdate.message)
+        console.error('[recordar_hecho] falló el update:', errUpdate.message)
         return { guardado: false, nota: 'No pude actualizar ese dato. Seguí la conversación con normalidad.' }
       }
       return { guardado: true, nota: 'Actualicé el dato viejo con el nuevo.' }
@@ -157,7 +169,7 @@ const recordarHecho: Tool = {
       if (errInsert.code === '23505') {
         return { guardado: false, nota: 'Eso ya estaba guardado, no hizo falta anotarlo de nuevo.' }
       }
-      console.error('[ai-chat] recordar_hecho: falló el insert:', errInsert.message)
+      console.error('[recordar_hecho] falló el insert:', errInsert.message)
       return { guardado: false, nota: 'No pude guardar ese dato. Seguí la conversación con normalidad.' }
     }
 
@@ -169,7 +181,7 @@ const recordarHecho: Tool = {
 
 const olvidarHecho: Tool = {
   declaration: {
-    name: 'olvidar_hecho',
+    name: OLVIDAR_HECHO,
     description:
       'Borra un dato que ya tenías guardado del usuario, cuando él te pide explícitamente que lo olvides o que ya no es cierto ' +
       '("olvídate de que...", "ya no es cierto que...", "borra ese dato"). ' +
@@ -202,7 +214,7 @@ const olvidarHecho: Tool = {
       .eq('user_id', ctx.userId)
 
     if (error) {
-      console.error('[ai-chat] olvidar_hecho: no se pudieron leer los hechos:', error.message)
+      console.error('[olvidar_hecho] no se pudieron leer los hechos:', error.message)
       return { borrado: false, nota: 'No pude acceder a la memoria en este momento. Seguí la conversación con normalidad.' }
     }
 
@@ -210,6 +222,19 @@ const olvidarHecho: Tool = {
     const aBorrarId = porClave.get(clave(propuesto.hecho))
 
     if (aBorrarId == null) {
+      // S3: el string que mandó el modelo, para poder ver POR QUÉ no matcheó.
+      // El contrato de esta tool es el texto EXACTO del hecho, y hay dos formas
+      // conocidas de fallarlo que sin este log son indistinguibles de "el dato
+      // ya no estaba": que el modelo copie el sufijo de categoría que agrega
+      // `bloqueMemoria` ("le gusta X (preferencia)") o que copie del bloque de
+      // recuerdos en vez del de hechos (sólo pasa en modo texto, que es el
+      // único donde van los dos).
+      //
+      // Se loguea el recibido y el conteo, NO las claves disponibles: eso
+      // volcaría la lista entera de hechos del usuario a los logs.
+      console.log(
+        `[olvidar_hecho] no matcheó ningún hecho: recibido="${propuesto.hecho.slice(0, 120)}" disponibles=${porClave.size}`,
+      )
       return {
         borrado: false,
         nota: 'No encontré ese dato guardado. Puede que ya no esté, o que el texto no coincida exacto con lo que tenés anotado.',
@@ -223,7 +248,7 @@ const olvidarHecho: Tool = {
       .eq('user_id', ctx.userId)
 
     if (errDelete) {
-      console.error('[ai-chat] olvidar_hecho: falló el delete:', errDelete.message)
+      console.error('[olvidar_hecho] falló el delete:', errDelete.message)
       return { borrado: false, nota: 'No pude borrar ese dato. Seguí la conversación con normalidad.' }
     }
 
@@ -285,7 +310,7 @@ const buscarEnMemoriaTool: Tool = {
       .maybeSingle()
 
     if (error || !settings?.gemini_api_key_encrypted) {
-      console.error('[live] buscar_en_memoria: no se pudo leer la key de Gemini:', error?.message)
+      console.error('[buscar_en_memoria] no se pudo leer la key de Gemini:', error?.message)
       return { ok: false, error: 'No pude acceder a la memoria en este momento.' }
     }
 
@@ -293,7 +318,7 @@ const buscarEnMemoriaTool: Tool = {
     try {
       apiKey = await decryptApiKey(settings.gemini_api_key_encrypted, ctx.encryptionSecret)
     } catch (err) {
-      console.error('[live] buscar_en_memoria: no se pudo descifrar la key:', err instanceof Error ? err.message : err)
+      console.error('[buscar_en_memoria] no se pudo descifrar la key:', err instanceof Error ? err.message : err)
       return { ok: false, error: 'No pude leer tu key de Gemini.' }
     }
 
@@ -344,7 +369,7 @@ const buscarEnInternetTool: Tool = {
       .maybeSingle()
 
     if (error) {
-      console.error('[ai-chat] buscar_en_internet: no se pudo leer la key de Tavily:', error.message)
+      console.error('[buscar_en_internet] no se pudo leer la key de Tavily:', error.message)
       return { ok: false, error: 'No pude acceder a la configuración de búsqueda en este momento.' }
     }
 
@@ -360,7 +385,7 @@ const buscarEnInternetTool: Tool = {
     try {
       apiKey = await decryptApiKey(encrypted, ctx.encryptionSecret)
     } catch (err) {
-      console.error('[ai-chat] buscar_en_internet: no se pudo descifrar la key:', err instanceof Error ? err.message : err)
+      console.error('[buscar_en_internet] no se pudo descifrar la key:', err instanceof Error ? err.message : err)
       return { ok: false, error: 'No pude leer tu key de Tavily. Volvé a guardarla en Ajustes.' }
     }
 

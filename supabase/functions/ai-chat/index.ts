@@ -17,18 +17,17 @@
 
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { decryptApiKey } from '../_shared/crypto.ts'
-import { generarEmbedding, vectorLiteral } from '../_shared/embeddings.ts'
+import { generarEmbedding } from '../_shared/embeddings.ts'
 import {
   bloqueMemoria,
-  textoDelIntercambio,
   turnosRecientes,
   ultimoMensajeUsuario,
   type Hecho,
   type MensajeHistorial,
 } from '../_shared/memoria.ts'
 import { systemInstructionBase } from '../_shared/prompt.ts'
-import { buscarRecuerdos } from '../_shared/recuerdos.ts'
-import { findTool, toolDeclarations } from '../_shared/tools.ts'
+import { buscarRecuerdos, guardarIntercambio } from '../_shared/recuerdos.ts'
+import { findTool, OLVIDAR_HECHO, toolDeclarations } from '../_shared/tools.ts'
 import { decideRpmSlot } from './rpm.ts'
 
 // gemini-3.1-flash-lite (no "-preview": esa variante quedó dada de baja).
@@ -300,31 +299,11 @@ async function cargarHechos(supabase: SupabaseClient, userId: string): Promise<H
   return (data ?? []) as Hecho[]
 }
 
-// Guarda el intercambio embebido. Se llama DESPUÉS de haberle contestado al
-// usuario (ver `enSegundoPlano`), así que su latencia no se siente en el chat.
-async function guardarIntercambio(
-  supabase: SupabaseClient,
-  apiKey: string,
-  userId: string,
-  pregunta: string,
-  respuesta: string,
-): Promise<void> {
-  const contenido = textoDelIntercambio(pregunta, respuesta)
-  // RETRIEVAL_DOCUMENT y no RETRIEVAL_QUERY: éste es el lado "documento" de la
-  // búsqueda. Gemini entrena los dos lados de forma asimétrica y mezclarlos
-  // degrada la similitud.
-  const embedding = await generarEmbedding(apiKey, contenido, 'RETRIEVAL_DOCUMENT')
-
-  // Sin embedding se guarda igual: perder el texto sería peor que perder el
-  // vector (la columna es nullable justamente por esto).
-  const { error } = await supabase.from('memoria_vectorial').insert({
-    user_id: userId,
-    contenido,
-    embedding: embedding ? vectorLiteral(embedding) : null,
-  })
-
-  if (error) console.error('[ai-chat] no se pudo guardar el intercambio:', error.message)
-}
+// `guardarIntercambio` vivía acá hasta el hallazgo A: se mudó a
+// `_shared/recuerdos.ts` porque ahora `live/index.ts` también escribe en
+// memoria_vectorial (cada turno hablado) y las dos Edge Functions no pueden
+// importarse entre sí sin ciclo. Mismo motivo por el que ya se había mudado
+// `buscarRecuerdos` en D3.
 
 // Deja corriendo una tarea después de haber devuelto la respuesta. `waitUntil`
 // es lo que evita que el runtime mate el isolate con la escritura a mitad de
@@ -460,6 +439,23 @@ Deno.serve(async (req) => {
   let usedToday: number | null = null
   const usageField = () => ({ usage: { used_today: usedToday ?? undefined, daily_quota: learned ?? undefined } })
 
+  // P1: si en ESTE request se ejecutó `olvidar_hecho`, el intercambio no se
+  // guarda en memoria_vectorial.
+  //
+  // Sin esto, pedir "olvidate de que X" persistía una fila con el texto
+  // "Usuario: olvidate de que X / Ámbar: listo" — o sea que el propio acto de
+  // pedir el olvido creaba el recuerdo que traía X de vuelta, con created_at
+  // fresco y altísima similitud contra cualquier pregunta futura sobre X. El
+  // RAG automático de este modo lo recuperaba en el mensaje siguiente, y por
+  // eso `olvidar_hecho` parecía funcionar en Live (que no tenía RAG automático)
+  // y no en texto, aunque el DELETE de la fila de memoria_hechos siempre
+  // funcionó en los dos.
+  //
+  // OJO CON EL ALCANCE: esto sólo evita la fila NUEVA. Las filas viejas de
+  // memoria_vectorial que ya mencionan el dato siguen ahí y el RAG las va a
+  // seguir trayendo — eso es P2, deliberadamente fuera de este cambio.
+  let seOlvidoUnHecho = false
+
   try {
     for (let turn = 0; turn < MAX_TURNS; turn++) {
       // Freno proactivo: chequeamos ANTES de gastar la llamada, no después de
@@ -494,8 +490,9 @@ Deno.serve(async (req) => {
         const respuesta = textFromParts(parts) || 'Listo.'
         // El intercambio se guarda sólo cuando hubo una respuesta de verdad:
         // los avisos de cuota o de finishReason no son conversación y no tienen
-        // nada que valga la pena recordar.
-        if (pregunta) {
+        // nada que valga la pena recordar. Y nunca si se olvidó un hecho en
+        // este request (ver `seOlvidoUnHecho`).
+        if (pregunta && !seOlvidoUnHecho) {
           enSegundoPlano(guardarIntercambio(supabase, apiKey, user.id, pregunta, respuesta))
         }
         return jsonResponse({ respuesta_texto: respuesta, ...usageField() })
@@ -509,6 +506,12 @@ Deno.serve(async (req) => {
       contents.push(candidate.content!)
       const responseParts: GeminiPart[] = []
       for (const call of calls) {
+        // Se marca al VER la call, no según lo que devuelva el handler: incluso
+        // si el borrado falló (p.ej. el texto no matcheó ningún hecho), este
+        // intercambio contiene el dato que el usuario pidió olvidar y no tiene
+        // que quedar en memoria_vectorial.
+        if (call.name === OLVIDAR_HECHO) seOlvidoUnHecho = true
+
         const tool = findTool(call.name)
         const result = tool
           ? await tool.handler(call.args, { supabase, userId: user.id, encryptionSecret })

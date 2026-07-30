@@ -21,7 +21,9 @@
 // única (4b). `tool` (4d): el puente que ejecuta las tools que el cliente
 // recibe por WebSocket — mismo `ToolContext` y mismo registro (`tools.ts`) que
 // `ai-chat` usa en modo texto, así que `recordar_hecho` y `buscar_en_internet`
-// se comportan igual en los dos modos.
+// se comportan igual en los dos modos. `guardar_intercambio` (hallazgo A): la
+// escritura de cada turno hablado en memoria_vectorial, que hasta ese hallazgo
+// no existía en este modo — ver el bloque de esa acción más abajo.
 //
 // 4e (resumption/reconexión) no agregó acciones nuevas: `contextWindowCompression`
 // ya estaba fijado en el token desde 4b, y `latir_sesion_live` ya aceptaba un
@@ -39,8 +41,9 @@
 
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { decryptApiKey } from '../_shared/crypto.ts'
-import { bloqueMemoria, type Hecho } from '../_shared/memoria.ts'
+import { bloqueMemoria, valeGuardarIntercambio, type Hecho } from '../_shared/memoria.ts'
 import { systemInstructionLive } from '../_shared/prompt.ts'
+import { guardarIntercambio } from '../_shared/recuerdos.ts'
 import { findTool, toolDeclarations } from '../_shared/tools.ts'
 
 // Confirmado disponible para una key gratuita de AI Studio (smoke test de R1,
@@ -266,6 +269,8 @@ Deno.serve(async (req) => {
     name?: string
     args?: Record<string, unknown>
     forzar?: boolean
+    usuario?: string
+    ambar?: string
   }
   try {
     body = await req.json()
@@ -422,6 +427,86 @@ Deno.serve(async (req) => {
       console.error(`[live] tool ${name} falló:`, err instanceof Error ? err.message : err)
       return jsonResponse({ error: 'La herramienta falló al ejecutarse.' }, 500)
     }
+  }
+
+  // --- guardar_intercambio (hallazgo A) --------------------------------------
+  //
+  // Persiste un turno hablado en memoria_vectorial, con el MISMO shape que un
+  // intercambio de texto (`textoDelIntercambio`: "Usuario: … / Ámbar: …").
+  //
+  // POR QUÉ EXISTE
+  //
+  // Hasta este cambio, el modo Live no escribía en memoria_vectorial en ningún
+  // momento: las transcripciones sólo iban al historial en memoria del cliente
+  // (`ConversacionContext`, 4g) y se perdían al recargar. Una charla de voz
+  // entera no dejaba rastro en la memoria a largo plazo — al día siguiente, en
+  // texto, el RAG no encontraba nada de ella — y tampoco aparecía en la vista
+  // Historial (que lee esta misma tabla).
+  //
+  // POR TURNO Y NO AL CERRAR LA SESIÓN
+  //
+  // Tres razones, cada una suficiente:
+  //   1. El esquema está comprometido con "una fila = un intercambio": es lo
+  //      que hace que un embedding represente UN tema (ver `textoDelIntercambio`)
+  //      y lo que asume el umbral de similitud. Una sesión entera en una fila
+  //      sería una bolsa de gatos, y además rompería el parseo de Historial,
+  //      que corta en el primer "\nÁmbar: ".
+  //   2. Cerrar es el momento MENOS confiable: `limpiar()` del cliente corre
+  //      desde `pagehide` como mejor esfuerzo. Guardar al final significa que
+  //      la charla más valiosa (la larga) es la que más riesgo tiene de
+  //      perderse completa.
+  //   3. Es el precedente que ya fijó 4g con el mismo argumento (las
+  //      transcripciones van al historial compartido en cada `turnComplete`,
+  //      no al cerrar).
+  // Efecto secundario bienvenido: por turno es inmune a toda la maquinaria de
+  // 4e — reconexiones, `goAway`, `handle_previo`. Lo ya hablado ya está escrito.
+  //
+  // Sin `EdgeRuntime.waitUntil()`, a diferencia de `ai-chat`: allá la escritura
+  // tiene que sobrevivir a una respuesta ya devuelta al usuario. Acá la
+  // frontera asíncrona la pone el cliente, que llama a esto sin esperarlo (el
+  // WebSocket de audio no depende de esta request), así que un `await` normal
+  // alcanza.
+  if (body.action === 'guardar_intercambio') {
+    const usuario = typeof body.usuario === 'string' ? body.usuario : ''
+    const ambar = typeof body.ambar === 'string' ? body.ambar : ''
+
+    // El filtro de "vale la pena guardarlo" vive del lado del servidor para que
+    // MIN_LARGO_INTERCAMBIO tenga UN solo lugar donde vivir. El cliente igual
+    // se ahorra la request cuando falta uno de los dos lados (eso no necesita
+    // saber el número). Lo caro —leer y descifrar la key, el embedding, el
+    // insert— queda todo detrás de este chequeo.
+    if (!valeGuardarIntercambio(usuario, ambar)) {
+      return jsonResponse({ guardado: false, motivo: 'intercambio_corto' })
+    }
+
+    const { data: settings } = await supabase
+      .from('ajustes_ia')
+      .select('gemini_api_key_encrypted')
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    // Best-effort como todo lo de memoria: sin key no hay embedding, y esto no
+    // es un pedido explícito del usuario del que haya que avisarle. Se loguea
+    // y la charla sigue.
+    if (!settings?.gemini_api_key_encrypted) {
+      console.error('[live] guardar_intercambio: el usuario no tiene key de Gemini guardada.')
+      return jsonResponse({ guardado: false, motivo: 'sin_key' })
+    }
+
+    let apiKey: string
+    try {
+      apiKey = await decryptApiKey(settings.gemini_api_key_encrypted, encryptionSecret)
+    } catch (err) {
+      console.error('[live] guardar_intercambio: no se pudo descifrar la key:', err instanceof Error ? err.message : err)
+      return jsonResponse({ guardado: false, motivo: 'sin_key' })
+    }
+
+    const guardado = await guardarIntercambio(supabase, apiKey, user.id, usuario, ambar)
+    // Largos, no contenido: alcanza para confirmar en los logs que el modo Live
+    // está escribiendo memoria (que es todo lo que el hallazgo A cambió) sin
+    // volcar la charla del usuario ahí.
+    console.log(`[live] intercambio guardado=${guardado} usuario=${usuario.length} ambar=${ambar.length}`)
+    return jsonResponse({ guardado })
   }
 
   // --- cerrar --------------------------------------------------------------

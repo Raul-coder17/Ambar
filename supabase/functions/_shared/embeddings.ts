@@ -52,19 +52,19 @@ export async function generarEmbedding(
       // El embeddings tiene su propia cuota, separada de la de flash-lite, así
       // que un 429 acá no dice nada del presupuesto de mensajes del chat.
       const body = await res.text().catch(() => '<sin body>')
-      console.error(`[ai-chat] embedding no-ok: status=${res.status} body=${body}`)
+      console.error(`[embeddings] no-ok: status=${res.status} body=${body}`)
       return null
     }
 
     const data = await res.json()
     const values = data?.embedding?.values
     if (!Array.isArray(values) || values.length !== EMBEDDING_DIMS) {
-      console.error(`[ai-chat] embedding con forma inesperada: ${JSON.stringify(data).slice(0, 300)}`)
+      console.error(`[embeddings] forma inesperada: ${JSON.stringify(data).slice(0, 300)}`)
       return null
     }
     return values as number[]
   } catch (err) {
-    console.error('[ai-chat] embedding falló:', err instanceof Error ? err.message : err)
+    console.error('[embeddings] falló:', err instanceof Error ? err.message : err)
     return null
   }
 }

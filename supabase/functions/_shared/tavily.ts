@@ -46,13 +46,13 @@ export async function buscarEnInternet(apiKey: string, query: string): Promise<R
       }),
     })
   } catch (err) {
-    console.error('[ai-chat] tavily: fetch falló:', err instanceof Error ? err.message : err)
+    console.error('[tavily] fetch falló:', err instanceof Error ? err.message : err)
     return { ok: false, error: 'No se pudo conectar con Tavily en este momento. Probá de nuevo en un rato.' }
   }
 
   if (!res.ok) {
     const rawBody = await res.text().catch(() => '<sin body>')
-    console.error(`[ai-chat] tavily no-ok: status=${res.status} body=${rawBody}`)
+    console.error(`[tavily] no-ok: status=${res.status} body=${rawBody}`)
 
     if (res.status === 401 || res.status === 403) {
       return {

@@ -62,6 +62,21 @@ export const TURNOS_RECIENTES = 8
 export const MAX_LARGO_HECHO = 300
 
 /**
+ * Largo mínimo (pregunta + respuesta) para que un intercambio valga guardarse
+ * en memoria_vectorial.
+ *
+ * Existe por el modo Live: una charla hablada está llena de turnos de "sí",
+ * "dale", "ajá" que como embedding no recuperan nada (ver
+ * `textoDelIntercambio`) y sólo suman filas al problema de crecimiento sin
+ * límite. En modo texto no se aplica: los mensajes escritos son más
+ * deliberados y ahí el único filtro sigue siendo que haya una pregunta.
+ *
+ * 60 es un punto de partida sin calibrar contra uso real, igual que
+ * UMBRAL_SIMILITUD — no es un número derivado de nada.
+ */
+export const MIN_LARGO_INTERCAMBIO = 60
+
+/**
  * Recorta el historial a los últimos `max` mensajes.
  *
  * Después del recorte descarta los mensajes de asistente que hayan quedado al
@@ -101,6 +116,21 @@ export function filtrarRecuerdos(recuerdos: Recuerdo[], umbral = UMBRAL_SIMILITU
  */
 export function textoDelIntercambio(pregunta: string, respuesta: string): string {
   return `Usuario: ${pregunta.trim()}\nÁmbar: ${respuesta.trim()}`
+}
+
+/**
+ * Si un intercambio de voz vale guardarse en memoria_vectorial.
+ *
+ * Exige las dos condiciones: que ambos lados tengan texto (un turno donde sólo
+ * habló uno no es un intercambio) y que entre los dos lleguen a
+ * MIN_LARGO_INTERCAMBIO. Lo llama SÓLO el modo Live — ver el comentario de esa
+ * constante para por qué texto no lo usa.
+ */
+export function valeGuardarIntercambio(pregunta: string, respuesta: string): boolean {
+  const p = pregunta.trim()
+  const r = respuesta.trim()
+  if (!p || !r) return false
+  return p.length + r.length >= MIN_LARGO_INTERCAMBIO
 }
 
 /**

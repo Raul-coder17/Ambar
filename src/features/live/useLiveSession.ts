@@ -34,6 +34,13 @@
 //     motivo entra en el estado 'conflicto' (ver `abrir`) porque no es un
 //     fallo de Live, es una decisión que le toca al usuario (forzar el
 //     cierre de la otra sesión, o no).
+//
+// El hallazgo A agregó la memoria a largo plazo: cada `turnComplete` también se
+// persiste en memoria_vectorial vía la acción `guardar_intercambio` de la Edge
+// Function. Hasta acá, el historial compartido de 4g era sólo en memoria, así
+// que una charla de voz entera no dejaba rastro para el día siguiente. Con P1,
+// el turno donde el modelo llamó a `olvidar_hecho` es la excepción: ése no se
+// guarda (ver `olvidoEnTurnoRef`).
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { GoogleGenAI, Modality, type LiveServerMessage, type LiveServerToolCall } from '@google/genai'
@@ -67,6 +74,13 @@ const esperar = (ms: number) => new Promise<void>((resolve) => setTimeout(resolv
 // esto (la RLS ya escopea cada tool al usuario dueño del JWT). Sólo evita que
 // una sesión de voz larga entre en un loop de tool calls sin fin.
 const TOPE_TOOL_CALLS = 30
+
+// Duplica a propósito la constante `OLVIDAR_HECHO` de
+// `supabase/functions/_shared/tools.ts`: ese módulo es código de Deno (imports
+// por URL) y no se puede importar desde el bundle de Vite. Si allá cambia el
+// nombre de la tool, hay que cambiarlo acá — por eso está en una constante y no
+// suelto en el medio de `alMensaje`.
+const OLVIDAR_HECHO = 'olvidar_hecho'
 
 interface RespuestaAbrir {
   token: string
@@ -133,6 +147,9 @@ export function useLiveSession(opciones?: OpcionesLiveSession) {
   const sessionIdRef = useRef<string | null>(null)
   const latidoRef = useRef<number | null>(null)
   const toolCallsRef = useRef(0)
+  // P1: si en el turno que se está armando el modelo llamó a `olvidar_hecho`,
+  // ese intercambio NO se persiste en memoria_vectorial. Ver `alMensaje`.
+  const olvidoEnTurnoRef = useRef(false)
   const wakeLockRef = useRef<WakeLockSentinel | null>(null)
   // Distingue un cierre pedido por el usuario de una caída de la conexión: sin
   // esto, cerrar a mano se reportaría como error.
@@ -296,10 +313,45 @@ export function useLiveSession(opciones?: OpcionesLiveSession) {
     sesionRef.current?.sendToolResponse({ functionResponses: respuestas })
   }, [])
 
+  // --- memoria a largo plazo (hallazgo A) ------------------------------------
+  //
+  // Cada turno hablado se persiste en memoria_vectorial vía la Edge Function
+  // (el embedding necesita la key BYOK descifrada, que nunca llega al
+  // navegador). Fire-and-forget a propósito: es best-effort como todo lo de
+  // memoria, y la conversación por WebSocket no espera nada de esto.
+  //
+  // El filtro de largo mínimo vive del lado del servidor para no duplicar el
+  // número; acá sólo se saltea el caso obvio (falta uno de los dos lados), que
+  // no necesita saberlo.
+  const guardarTurnoEnMemoria = useCallback(async (usuario: string, ambar: string) => {
+    const { error } = await supabase.functions.invoke('live', {
+      body: { action: 'guardar_intercambio', usuario, ambar },
+    })
+    // No se le muestra al usuario ni se reintenta: perder un turno de memoria
+    // no es motivo para interrumpir una charla hablada.
+    if (error) console.error('[live] no se pudo guardar el turno en memoria:', error)
+  }, [])
+
   // --- mensajes del servidor ----------------------------------------------
 
   const alMensaje = useCallback((m: LiveServerMessage) => {
-    if (m.toolCall) void responderToolCall(m.toolCall)
+    if (m.toolCall) {
+      // P1: se marca al VER la call, antes de que `responderToolCall` haga su
+      // POST — así no depende de la latencia de esa request. El orden que hace
+      // falta lo garantiza la Live API: el modelo no termina de generar el
+      // turno (y por lo tanto no manda `turnComplete`) hasta recibir el
+      // `functionResponse`.
+      //
+      // Sin esto, pedir "olvidate de que X" en voz alta persistiría un
+      // intercambio con X escrito textualmente, y el RAG automático del modo
+      // texto lo traería de vuelta después. Es el mismo agujero que P1 tapa en
+      // `ai-chat`, y hasta este cambio Live estaba a salvo sólo por accidente:
+      // no escribía en memoria_vectorial en absoluto.
+      if ((m.toolCall.functionCalls ?? []).some((c) => c.name === OLVIDAR_HECHO)) {
+        olvidoEnTurnoRef.current = true
+      }
+      void responderToolCall(m.toolCall)
+    }
 
     // `resumable=false` viene con `newHandle` vacío en momentos donde no se
     // puede retomar (p.ej. el modelo generando) — no hay nada que guardar ahí,
@@ -344,6 +396,10 @@ export function useLiveSession(opciones?: OpcionesLiveSession) {
       parcialRef.current = { usuario: '', ambar: '' }
       const usuarioTexto = usuario.trim()
       const ambarTexto = ambar.trim()
+      // Se consume el flag acá: vale por el turno que se está cerrando, no por
+      // los que vengan después.
+      const seOlvidoUnHecho = olvidoEnTurnoRef.current
+      olvidoEnTurnoRef.current = false
 
       setTurnos((previos) => {
         const nuevos = [...previos]
@@ -357,8 +413,14 @@ export function useLiveSession(opciones?: OpcionesLiveSession) {
       // pierda nada de lo ya hablado.
       if (usuarioTexto) agregarMensaje({ role: 'user', text: usuarioTexto })
       if (ambarTexto) agregarMensaje({ role: 'assistant', text: ambarTexto })
+
+      // Y a memoria_vectorial (hallazgo A), que es lo que sobrevive a esta
+      // sesión: el historial compartido de arriba es sólo en memoria.
+      if (usuarioTexto && ambarTexto && !seOlvidoUnHecho) {
+        void guardarTurnoEnMemoria(usuarioTexto, ambarTexto)
+      }
     }
-  }, [responderToolCall, agregarMensaje])
+  }, [responderToolCall, agregarMensaje, guardarTurnoEnMemoria])
 
   // --- conectar / reconectar (4e) ------------------------------------------
   //
@@ -496,6 +558,7 @@ export function useLiveSession(opciones?: OpcionesLiveSession) {
     parcialRef.current = { usuario: '', ambar: '' }
     cerrandoRef.current = false
     toolCallsRef.current = 0
+    olvidoEnTurnoRef.current = false
     setEstado('conectando')
 
     // 1) El micrófono PRIMERO, antes de pedir el token.
