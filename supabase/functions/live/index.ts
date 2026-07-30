@@ -43,7 +43,7 @@ import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supa
 import { decryptApiKey } from '../_shared/crypto.ts'
 import { bloqueMemoria, valeGuardarIntercambio, type Hecho } from '../_shared/memoria.ts'
 import { systemInstructionLive } from '../_shared/prompt.ts'
-import { guardarIntercambio } from '../_shared/recuerdos.ts'
+import { guardarIntercambio, recuerdosRecientes } from '../_shared/recuerdos.ts'
 import { findTool, toolDeclarations } from '../_shared/tools.ts'
 
 // Confirmado disponible para una key gratuita de AI Studio (smoke test de R1,
@@ -328,12 +328,33 @@ Deno.serve(async (req) => {
       return errorResponse('sin_key', 'No se pudo descifrar la key. Volvé a guardarla en Ajustes.', 500)
     }
 
-    // Los hechos van completos, igual que en texto. Los recuerdos por RAG no:
-    // al abrir la sesión el usuario todavía no dijo nada contra qué buscar.
-    // Eso lo resuelve la tool `buscar_en_memoria` (D3, ver tools.ts) — a
-    // demanda, cuando el modelo decide que la necesita durante la charla.
-    const hechos = await cargarHechos(supabase, user.id)
-    const systemInstruction = systemInstructionLive() + bloqueMemoria(hechos, [])
+    // Los hechos van completos, igual que en texto. Los recuerdos por SIMILITUD
+    // siguen sin ir: al abrir el micrófono el usuario todavía no dijo nada
+    // contra qué buscar, y eso lo resuelve a demanda la tool `buscar_en_memoria`
+    // (D3, ver tools.ts).
+    //
+    // Lo que sí va desde ahora (asimetría de RAG) son los últimos intercambios
+    // por FECHA: que no haya contra qué buscar por parecido no significaba que
+    // no hubiera nada que traer — en t=0 la clave de recuperación correcta es la
+    // recencia. Es un `select` común, sin embedding ni RPC.
+    //
+    // PERO REANUDAR NO ES ABRIR. El cliente vuelve a pegarle a esta misma acción
+    // para re-mintear el token a mitad de una reconexión (ver `body.handle` más
+    // abajo), y `lock.handle_previo` marca el caso de retomar una sesión que
+    // murió sin liberarse. En los dos el contexto de la charla vuelve por
+    // session resumption, así que el bloque no sólo sobra: sería dañino. Desde
+    // el hallazgo A cada turno hablado se persiste al instante, o sea que "los
+    // últimos intercambios" en un re-mint son los de ESTA conversación, de hace
+    // noventa segundos, presentados al modelo como recuerdos de una charla
+    // anterior.
+    const reanudando = (typeof body.handle === 'string' && Boolean(body.handle)) || Boolean(lock.handle_previo)
+
+    const [hechos, recientes] = await Promise.all([
+      cargarHechos(supabase, user.id),
+      reanudando ? Promise.resolve<string[]>([]) : recuerdosRecientes(supabase, user.id),
+    ])
+
+    const systemInstruction = systemInstructionLive() + bloqueMemoria(hechos, [], recientes)
 
     const minted = await mintearToken(apiKey, systemInstruction)
 
@@ -359,7 +380,10 @@ Deno.serve(async (req) => {
       if (latirError) console.error('[live] no se pudo persistir el handle en abrir:', latirError.message)
     }
 
-    console.log(`[live] sesión abierta: hechos=${hechos.length} session_id=${sessionId}`)
+    console.log(
+      `[live] sesión abierta: hechos=${hechos.length} recientes=${recientes.length}` +
+        `${reanudando ? ' (reanudando: sin bloque de recientes)' : ''} session_id=${sessionId}`,
+    )
 
     return jsonResponse({
       token: minted.token,

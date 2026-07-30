@@ -58,6 +58,20 @@ export const UMBRAL_SIMILITUD = 0.6
  */
 export const TURNOS_RECIENTES = 8
 
+/**
+ * Cuántos intercambios recientes se traen al ABRIR una sesión de voz.
+ *
+ * No es lo mismo que TOP_K: aquéllos se eligen por similitud contra algo que el
+ * usuario dijo, y al abrir el micrófono todavía no dijo nada. En t=0 la clave
+ * de recuperación correcta es la recencia, no el parecido.
+ *
+ * 5 es un punto de partida sin calibrar, igual que UMBRAL_SIMILITUD y
+ * MIN_LARGO_INTERCAMBIO. Ojo con la granularidad: desde el hallazgo A cada
+ * turno hablado es una fila, así que 5 pueden ser los últimos dos minutos de
+ * una llamada larga, no las últimas 5 conversaciones.
+ */
+export const RECUERDOS_RECIENTES = 5
+
 /** Largo máximo de un hecho. Un "hecho" que no entra acá es un resumen. */
 export const MAX_LARGO_HECHO = 300
 
@@ -192,8 +206,14 @@ export function valeGuardarIntercambio(pregunta: string, respuesta: string): boo
  * Se MUEVEN, no se copian: si aparecieran en las dos secciones el modelo las
  * vería dos veces con dos marcos contradictorios (uno dice "no lo recites", el
  * otro "obedecelo").
+ *
+ * `recientes` es el cuarto bloque posible (asimetría de RAG): los últimos
+ * intercambios por fecha, que usa SÓLO el modo Live al abrir. Es un parámetro
+ * de esta función y no un string que el llamador concatene por su cuenta para
+ * que el orden de las secciones —y sobre todo el invariante de que el estilo va
+ * último— se siga decidiendo en un solo lugar.
  */
-export function bloqueMemoria(hechos: Hecho[], recuerdos: Recuerdo[]): string {
+export function bloqueMemoria(hechos: Hecho[], recuerdos: Recuerdo[], recientes: string[] = []): string {
   const partes: string[] = []
   const estilo = hechos.filter(esHechoDeEstilo)
   const generales = hechos.filter((h) => !esHechoDeEstilo(h))
@@ -205,10 +225,25 @@ export function bloqueMemoria(hechos: Hecho[], recuerdos: Recuerdo[]): string {
     )
   }
 
+  // OJO: esta sección es de recuerdos elegidos por SIMILITUD, y su texto lo
+  // dice ("que se parecen a lo que acaba de escribir" — que además asume modo
+  // texto). Los intercambios recientes del modo Live NO van por acá aunque
+  // salgan de la misma tabla: se eligen por fecha, no por parecido, y meterlos
+  // bajo este marco le diría al modelo que se parecen a algo que el usuario
+  // acaba de escribir cuando todavía no escribió nada. Tienen su propia
+  // sección más abajo.
   if (recuerdos.length > 0) {
     const lineas = recuerdos.map((r) => `- ${r.contenido.trim()}`)
     partes.push(
       `Fragmentos de conversaciones ANTERIORES con este usuario que se parecen a lo que acaba de escribir. Son recuerdos tuyos, no cosas que se hayan dicho recién: si los usás, hablá de ellos como algo que pasó antes. Si no vienen al caso, ignoralos.\n${lineas.join('\n')}`,
+    )
+  }
+
+  if (recientes.length > 0) {
+    const lineas = recientes.map((c) => `- ${c.trim()}`)
+    partes.push(
+      'Así venía la última conversación con este usuario, de lo más viejo a lo más reciente. Son recuerdos de charlas ANTERIORES, no cosas que se hayan dicho en ésta: si las traés a la charla, hablá de ellas como algo que ya pasó. ' +
+        `Sirven para retomar el hilo; si el usuario arranca con otro tema, ignoralas.\n${lineas.join('\n')}`,
     )
   }
 

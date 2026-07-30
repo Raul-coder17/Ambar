@@ -1,11 +1,14 @@
-// I/O de memoria_vectorial: los DOS lados de la misma tabla.
+// I/O de memoria_vectorial: todas las puertas a la misma tabla.
 //
-//   buscarRecuerdos()    — el lado lectura (RAG), con RETRIEVAL_QUERY.
-//   guardarIntercambio() — el lado escritura, con RETRIEVAL_DOCUMENT.
+//   buscarRecuerdos()     — lectura por SIMILITUD (RAG), con RETRIEVAL_QUERY.
+//   recuerdosRecientes()  — lectura por FECHA, sin embedding ni RPC.
+//   guardarIntercambio()  — escritura, con RETRIEVAL_DOCUMENT.
 //
-// Están juntos a propósito: el `taskType` asimétrico (Fase 2) es la parte fácil
-// de romper sin darse cuenta, y se rompe justamente cuando se toca un lado sin
-// ver el otro. Acá el par queda a la vista.
+// Las dos primeras están juntas a propósito con la tercera: el `taskType`
+// asimétrico (Fase 2) es la parte fácil de romper sin darse cuenta, y se rompe
+// justamente cuando se toca un lado sin ver el otro. Acá el par queda a la
+// vista — y de paso queda a la vista que la lectura por fecha NO participa de
+// él (ver su comentario).
 //
 // Separado de `memoria.ts` porque ese módulo es deliberadamente puro (sin I/O
 // ni Deno.serve, ver el comentario de su cabecera) — esto en cambio le pega
@@ -23,7 +26,14 @@
 //     charla de voz entera no dejaba rastro en la memoria a largo plazo.
 
 import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { filtrarRecuerdos, textoDelIntercambio, TOP_K, UMBRAL_SIMILITUD, type Recuerdo } from './memoria.ts'
+import {
+  filtrarRecuerdos,
+  RECUERDOS_RECIENTES,
+  textoDelIntercambio,
+  TOP_K,
+  UMBRAL_SIMILITUD,
+  type Recuerdo,
+} from './memoria.ts'
 import { generarEmbedding, vectorLiteral } from './embeddings.ts'
 
 export async function buscarRecuerdos(supabase: SupabaseClient, embedding: number[]): Promise<Recuerdo[]> {
@@ -51,6 +61,55 @@ export async function buscarRecuerdos(supabase: SupabaseClient, embedding: numbe
   console.log(`[recuerdos] disponibles=${crudos.length} usados=${filtrados.length} similitudes=[${similitudes}]`)
 
   return filtrados
+}
+
+/**
+ * Los últimos intercambios guardados, por fecha. SIN embedding y SIN búsqueda
+ * vectorial: es un `select` común.
+ *
+ * Es la tercera puerta de I/O sobre memoria_vectorial y la única que no pasa
+ * por el RPC. Existe por la asimetría de RAG entre los dos modos: al ABRIR una
+ * sesión de voz el usuario todavía no dijo nada contra qué buscar por
+ * similitud, así que en t=0 la clave de recuperación correcta es la RECENCIA,
+ * no el parecido. La conclusión de "no hay contra qué buscar" no era "entonces
+ * nada".
+ *
+ * QUE NO LLEVE EMBEDDING NO ES UN OLVIDO. El par `taskType` asimétrico de las
+ * otras dos funciones (RETRIEVAL_QUERY / RETRIEVAL_DOCUMENT) no aplica acá
+ * porque no hay consulta que embeber: agregarle uno "por simetría" sería gastar
+ * una llamada al endpoint de embeddings para ordenar por una columna.
+ *
+ * Devuelve en orden CRONOLÓGICO (lo más viejo primero) aunque la consulta pida
+ * `desc`: el desc es para quedarse con las últimas N, pero el bloque se lee de
+ * arriba a abajo y tiene que terminar en lo último que se habló.
+ *
+ * Best-effort como todo lo de memoria: si falla devuelve [] y la sesión abre
+ * igual, sólo que sin el hilo de la charla anterior.
+ */
+export async function recuerdosRecientes(
+  supabase: SupabaseClient,
+  userId: string,
+  limite = RECUERDOS_RECIENTES,
+): Promise<string[]> {
+  // El `user_id` explícito es redundante con RLS (el cliente se construye con
+  // el JWT del usuario), igual que en `cargarHechos`: mismo criterio de no
+  // depender de una sola capa para el aislamiento entre usuarios.
+  const { data, error } = await supabase
+    .from('memoria_vectorial')
+    .select('contenido')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(limite)
+
+  if (error) {
+    console.error('[recuerdos] no se pudieron traer los recientes:', error.message)
+    return []
+  }
+
+  return (data ?? [])
+    .map((fila) => (fila.contenido as string | null)?.trim() ?? '')
+    .filter((contenido) => contenido.length > 0)
+    .reverse()
 }
 
 /**

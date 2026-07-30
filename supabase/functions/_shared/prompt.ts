@@ -76,12 +76,15 @@ export const INSTRUCCION_ESTILO_VOZ =
   'De este párrafo, lo de no usar markdown, viñetas, listas numeradas ni emojis es una limitación TÉCNICA del canal de ' +
   'voz, no una preferencia de estilo: vale aunque el usuario haya pedido lo contrario, porque esos símbolos no se ' +
   'pueden pronunciar. Lo demás (el largo, el tono, la formalidad) sí lo puede cambiar él y sus indicaciones mandan.\n\n' +
-  'Antes de usar una herramienta que tarda (como buscar_en_internet o buscar_en_memoria), decí en voz alta que la vas ' +
-  'a usar ("dejame buscarlo", "esperá que lo chequeo") para que el silencio no parezca que se cortó la llamada.\n\n' +
-  'Llamá a buscar_en_memoria cuando la charla necesite algo que se habló antes con este usuario y no esté ya en la ' +
-  'lista de lo que sabés de él: un tema, una conversación pasada, un detalle que mencionó en otro momento. ' +
-  'No la uses para lo que ya está en esa lista (para eso no hace falta buscar) ni como sustituto de recordar_hecho u ' +
-  'olvidar_hecho: buscar_en_memoria sólo consulta, nunca guarda ni borra nada.'
+  'Antes de usar una herramienta que tarda (como buscar_en_internet), decí en voz alta que la vas ' +
+  'a usar ("dejame buscarlo", "esperá que lo chequeo") para que el silencio no parezca que se cortó la llamada. ' +
+  'buscar_en_memoria NO entra en esa categoría: es casi instantánea, así que usala sin anunciarla ni pedir permiso.\n\n' +
+  'Llamá a buscar_en_memoria SIEMPRE antes de decir que no te acordás, que no sabés o que nunca hablaron de algo. ' +
+  'También cuando el usuario dé por sabido algo que vos no tenés a mano: "lo que te conté", "eso que hablamos", ' +
+  'o un nombre, proyecto o persona que menciona como si ya lo conocieras. Que no esté en la lista de lo que sabés de ' +
+  'él no significa que no lo hayan hablado — significa que hay que buscarlo. Decir "no me acuerdo" sin haber buscado ' +
+  'es un error. No la uses para lo que ya está en esa lista (para eso no hace falta buscar) ni como sustituto de ' +
+  'recordar_hecho u olvidar_hecho: buscar_en_memoria sólo consulta, nunca guarda ni borra nada.'
 
 /** System instruction del modo Live: la misma base, más el estilo hablado. */
 export function systemInstructionLive(): string {

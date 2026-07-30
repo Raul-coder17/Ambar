@@ -327,9 +327,11 @@ const buscarEnMemoriaTool: Tool = {
   declaration: {
     name: 'buscar_en_memoria',
     description:
-      'Busca en tus recuerdos de conversaciones anteriores con este usuario algo que se haya hablado antes y que no ' +
-      'esté en la lista de hechos que ya sabés de él. Usala cuando la charla necesite ese contexto y no lo tengas a mano. ' +
-      'No la uses para datos que ya están en la lista de hechos: para eso no hace falta buscar nada.',
+      'Busca en tus recuerdos de conversaciones anteriores con este usuario. Es rápida y barata: usala sin dudar. ' +
+      'SIEMPRE llamala antes de decirle al usuario que no te acordás, que no sabés o que nunca hablaron de algo, ' +
+      'y también cuando él dé por sabido algo que vos no tenés a mano ("lo que te conté", "eso que hablamos", ' +
+      'un nombre o proyecto que menciona como conocido). Decir "no me acuerdo" sin haber buscado es un error. ' +
+      'Lo único para lo que no hace falta llamarla son los datos que ya están en la lista de hechos que sabés del usuario.',
     parameters: {
       type: 'OBJECT',
       properties: {
@@ -381,7 +383,25 @@ const buscarEnMemoriaTool: Tool = {
       return { ok: true, encontrado: false, nota: 'No encontré nada en la memoria sobre eso.' }
     }
 
-    return { ok: true, encontrado: true, recuerdos: recuerdos.map((r) => r.contenido) }
+    // El `nota` NO es decorativo: hasta acá esta tool devolvía el `contenido`
+    // pelado, sin decir que era viejo — justo el riesgo que el diseño de texto
+    // se tomó el trabajo de prevenir con el marco de `bloqueMemoria`,
+    // reintroducido en el otro modo.
+    //
+    // Y se volvió condición para el bloque de recuerdos recientes que ahora se
+    // arma al abrir la sesión: los dos leen la MISMA tabla, uno por fecha y el
+    // otro por similitud, así que devolver la misma fila es el caso esperado y
+    // no el raro (lo más reciente es justo lo que el usuario tiende a retomar).
+    // Con dos marcos distintos sobre el mismo texto —uno "de esto venían
+    // hablando", el otro nada— el modelo puede leerlos como dos ocasiones
+    // separadas e inventar que el tema salió dos veces. Compartiendo el mismo
+    // marco de fondo, la colisión pasa a ser redundante en vez de contradictoria.
+    return {
+      ok: true,
+      encontrado: true,
+      nota: 'Son fragmentos de conversaciones ANTERIORES, no cosas que el usuario acabe de decir. Si los usás, hablá de ellos como algo que ya pasó.',
+      recuerdos: recuerdos.map((r) => r.contenido),
+    }
   },
 }
 
