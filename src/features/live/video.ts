@@ -13,6 +13,16 @@
 // mismo intervalo de captura siguen vivos durante el cambio — sólo se
 // reemplaza el stream de abajo — así no hace falta reabrir nada del lado de
 // quien llama ni se vuelve a pedir permiso.
+//
+// El stream viejo se suelta ANTES de pedir el nuevo (no al revés): con el
+// orden inverso, un teléfono real (con cámara trasera confirmada) fallaba al
+// cambiar de cámara — la hipótesis más probable es que muchos Android sólo
+// exponen un pipe de cámara a la vez, y pedir el segundo stream mientras el
+// primero sigue vivo lo hace fallar aunque la cámara pedida exista. Si el
+// segundo `getUserMedia` falla, no queda cámara vieja a la que volver:
+// `cambiarCamara()` apaga todo (mismo efecto que `cerrar()`) y propaga el
+// error, así quien llama no se queda pensando que la cámara sigue prendida
+// cuando ya no hay nada capturando.
 
 /** Ancho pedido a la cámara; el navegador ajusta el alto para mantener el aspecto. */
 const ANCHO_FRAME = 640
@@ -30,9 +40,11 @@ export interface Camara {
    * Pide un stream nuevo con el `facingMode` opuesto al actual y lo engancha
    * al mismo `<video>` oculto — cambiar de cámara no siempre se puede hacer
    * en caliente sobre el stream existente, hace falta un `getUserMedia`
-   * nuevo. Sólo se apaga el stream viejo y se pisa el estado una vez que el
-   * nuevo ya está andando: si el pedido falla (p.ej. el dispositivo no tiene
-   * cámara trasera), todo queda como estaba. El permiso no se vuelve a pedir
+   * nuevo. El stream viejo se suelta ANTES de pedir el nuevo (ver cabecera
+   * del archivo: es lo que hace falta en teléfonos con un solo pipe de
+   * cámara). Trade-off aceptado: si el `getUserMedia` nuevo falla, la
+   * cámara queda apagada del todo — no hay stream viejo al que volver — en
+   * vez de seguir en la que ya andaba. El permiso no se vuelve a pedir
    * porque ya está concedido para "cámara" en este origen, sin importar el
    * `facingMode`.
    */
@@ -88,21 +100,42 @@ export async function abrirCamara(alFrame: (base64Jpeg: string) => void): Promis
     alFrame(dataUrl.slice(dataUrl.indexOf(',') + 1))
   }, INTERVALO_FRAME_MS)
 
+  // Único punto de apagado real: lo usa `cerrar()` y, si el `getUserMedia`
+  // de `cambiarCamara()` falla, también el catch de ahí abajo — sin esto
+  // habría dos copias de la misma secuencia de limpieza.
+  function detener() {
+    clearInterval(intervalo)
+    video.pause()
+    video.srcObject = null
+    video.remove()
+    for (const track of stream.getTracks()) track.stop()
+  }
+
   return {
     async cerrar() {
-      clearInterval(intervalo)
-      video.pause()
-      video.srcObject = null
-      video.remove()
-      for (const track of stream.getTracks()) track.stop()
+      detener()
     },
     async cambiarCamara() {
       const nuevoFacing: FacingMode = facing === 'user' ? 'environment' : 'user'
-      const nuevoStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: nuevoFacing, width: ANCHO_FRAME },
-      })
 
+      // Soltar el stream viejo ANTES de pedir el nuevo (ver cabecera del
+      // archivo): con el orden inverso, el teléfono real contra el que se
+      // reprodujo el bug fallaba a pedir la trasera mientras la frontal
+      // seguía viva, aunque la cámara trasera existiera.
       for (const track of stream.getTracks()) track.stop()
+
+      let nuevoStream: MediaStream
+      try {
+        nuevoStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: nuevoFacing, width: ANCHO_FRAME },
+        })
+      } catch (err) {
+        // No hay stream viejo al que volver (ya se soltó arriba): apagar
+        // todo en vez de dejar el <video> enganchado a un stream muerto.
+        detener()
+        throw err
+      }
+
       stream = nuevoStream
       facing = nuevoFacing
       video.srcObject = stream

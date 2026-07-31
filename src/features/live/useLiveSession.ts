@@ -43,10 +43,14 @@
 // guarda (ver `olvidoEnTurnoRef`).
 //
 // Después de 4f se agregó `alternarCamaraFacing`: intercambia frontal/trasera
-// sin apagar la cámara ni volver a pedir permiso (ver `cambiarCamara` en
-// `video.ts`). `camaraFacing` sólo importa mientras `camaraActiva` es true;
-// se resetea a 'user' en `apagarCamara` porque `abrirCamara` siempre vuelve a
-// arrancar por la frontal.
+// sin volver a pedir permiso (ver `cambiarCamara` en `video.ts`). Si el
+// cambio falla, la cámara queda apagada del todo en vez de seguir en la que
+// ya andaba — `video.ts` suelta el stream viejo antes de pedir el nuevo
+// porque algunos Android no soportan dos streams de cámara a la vez, así que
+// un fallo ahí no tiene stream viejo al que volver. `camaraFacing` sólo
+// importa mientras `camaraActiva` es true; se resetea a 'user' en
+// `apagarCamara` porque `abrirCamara` siempre vuelve a arrancar por la
+// frontal.
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { GoogleGenAI, Modality, type LiveServerMessage, type LiveServerToolCall } from '@google/genai'
@@ -706,17 +710,31 @@ export function useLiveSession(opciones?: OpcionesLiveSession) {
     }
   }, [estado, apagarCamara])
 
-  /** Intercambia frontal/trasera. Sólo tiene efecto con la cámara ya prendida. */
+  /**
+   * Intercambia frontal/trasera. Sólo tiene efecto con la cámara ya
+   * prendida. Si `cambiarCamara()` falla, ya apagó todo del lado de
+   * `video.ts` (ver su comentario de cabecera: no queda stream viejo al que
+   * volver) — acá hay que reflejar eso en el estado de React con
+   * `apagarCamara()`, si no la UI se queda mostrando la cámara como
+   * prendida sin nada capturando de verdad.
+   */
   const alternarCamaraFacing = useCallback(async () => {
     const camara = camaraRef.current
     if (!camara) return
 
     try {
       setCamaraFacing(await camara.cambiarCamara())
-    } catch {
-      setError('No pude cambiar de cámara. Puede que este dispositivo no tenga una cámara trasera.')
+    } catch (err) {
+      // El mensaje no asume una causa puntual (antes decía "no tiene cámara
+      // trasera", que resultó ser la conclusión equivocada la primera vez
+      // que esto falló en un teléfono real): sin loguear el error acá no hay
+      // forma de saber si es por hardware que no soporta dos streams de
+      // cámara a la vez, un permiso, u otra cosa.
+      console.error('[live] no se pudo cambiar de cámara:', err)
+      await apagarCamara()
+      setError('No pude cambiar de cámara. Intentá de nuevo.')
     }
-  }, [])
+  }, [apagarCamara])
 
   // --- pantalla bloqueada / pestaña oculta ---------------------------------
 
