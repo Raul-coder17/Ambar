@@ -41,12 +41,18 @@
 // que una charla de voz entera no dejaba rastro para el día siguiente. Con P1,
 // el turno donde el modelo llamó a `olvidar_hecho` es la excepción: ése no se
 // guarda (ver `olvidoEnTurnoRef`).
+//
+// Después de 4f se agregó `alternarCamaraFacing`: intercambia frontal/trasera
+// sin apagar la cámara ni volver a pedir permiso (ver `cambiarCamara` en
+// `video.ts`). `camaraFacing` sólo importa mientras `camaraActiva` es true;
+// se resetea a 'user' en `apagarCamara` porque `abrirCamara` siempre vuelve a
+// arrancar por la frontal.
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { GoogleGenAI, Modality, type LiveServerMessage, type LiveServerToolCall } from '@google/genai'
 import { supabase } from '../../lib/supabase'
 import { abrirCaptura, crearReproductor, type Captura, type Reproductor } from './audio'
-import { abrirCamara, type Camara } from './video'
+import { abrirCamara, type Camara, type FacingMode } from './video'
 import { useConversacion } from '../chat/ConversacionContext'
 
 /** El SDK no exporta el tipo de la sesión con un nombre estable: se deriva. */
@@ -136,6 +142,9 @@ export function useLiveSession(opciones?: OpcionesLiveSession) {
   const [turnos, setTurnos] = useState<TurnoLive[]>([])
   const [hablando, setHablando] = useState(false)
   const [camaraActiva, setCamaraActiva] = useState(false)
+  // Sólo tiene sentido mientras `camaraActiva` es true. Se resetea a 'user'
+  // en `apagarCamara`: `abrirCamara` siempre arranca de nuevo por la frontal.
+  const [camaraFacing, setCamaraFacing] = useState<FacingMode>('user')
   // Sólo se usa con estado === 'conflicto': cuánto falta para que el TTL de
   // la otra sesión venza solo, como alternativa a forzar el cierre ya mismo.
   const [esperaSegundos, setEsperaSegundos] = useState<number | null>(null)
@@ -219,6 +228,7 @@ export function useLiveSession(opciones?: OpcionesLiveSession) {
     const camara = camaraRef.current
     camaraRef.current = null
     setCamaraActiva(false)
+    setCamaraFacing('user')
     await camara?.cerrar()
   }, [])
 
@@ -690,10 +700,23 @@ export function useLiveSession(opciones?: OpcionesLiveSession) {
         sesionRef.current?.sendRealtimeInput({ video: { data: base64, mimeType: 'image/jpeg' } })
       })
       setCamaraActiva(true)
+      setCamaraFacing('user')
     } catch {
       setError('No pude acceder a la cámara. Revisá los permisos del navegador y volvé a intentar.')
     }
   }, [estado, apagarCamara])
+
+  /** Intercambia frontal/trasera. Sólo tiene efecto con la cámara ya prendida. */
+  const alternarCamaraFacing = useCallback(async () => {
+    const camara = camaraRef.current
+    if (!camara) return
+
+    try {
+      setCamaraFacing(await camara.cambiarCamara())
+    } catch {
+      setError('No pude cambiar de cámara. Puede que este dispositivo no tenga una cámara trasera.')
+    }
+  }, [])
 
   // --- pantalla bloqueada / pestaña oculta ---------------------------------
 
@@ -742,9 +765,11 @@ export function useLiveSession(opciones?: OpcionesLiveSession) {
     turnos,
     hablando,
     camaraActiva,
+    camaraFacing,
     abrir,
     cerrar,
     alternarSilencio,
     alternarCamara,
+    alternarCamaraFacing,
   }
 }

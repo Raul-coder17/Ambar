@@ -9,7 +9,9 @@
 // 4f agregó el toggle de cámara, apagado por default y sólo habilitado con
 // sesión activa. La franja ámbar debajo del header es el indicador — a
 // propósito no es sólo el ícono de cámara del sistema operativo, que puede
-// pasar desapercibido.
+// pasar desapercibido. Después de 4f se sumó "Cambiar cámara" (frontal ↔
+// trasera), visible sólo mientras la cámara está prendida; la franja dice
+// cuál de las dos está activa en cada momento.
 //
 // 4g agregó dos cosas:
 //   - El estado 'conflicto' (motivo `sesion_activa`): en vez del botón
@@ -49,10 +51,12 @@ export function LiveScreen({ onCerrar }: { onCerrar: (irAChat?: boolean) => void
     turnos,
     hablando,
     camaraActiva,
+    camaraFacing,
     abrir,
     cerrar,
     alternarSilencio,
     alternarCamara,
+    alternarCamaraFacing,
   } = useLiveSession({ alFallback })
 
   async function handleSalir() {
@@ -94,7 +98,7 @@ export function LiveScreen({ onCerrar }: { onCerrar: (irAChat?: boolean) => void
       {camaraActiva && (
         <div className="flex items-center justify-center gap-2 border-b border-amber/30 bg-amber/10 px-4 py-1.5 text-xs text-amber-soft">
           <span className="h-2 w-2 animate-pulse rounded-full bg-amber" />
-          Cámara activa — Ámbar puede verte
+          {camaraFacing === 'environment' ? 'Cámara trasera activa' : 'Cámara frontal activa'} — Ámbar puede verte
         </div>
       )}
 
@@ -168,6 +172,15 @@ export function LiveScreen({ onCerrar }: { onCerrar: (irAChat?: boolean) => void
               >
                 {camaraActiva ? 'Apagar cámara' : 'Prender cámara'}
               </button>
+              {camaraActiva && (
+                <button
+                  onClick={() => void alternarCamaraFacing()}
+                  disabled={estado !== 'activa'}
+                  className="rounded-pill border border-border-soft px-6 py-3 text-sm text-ink-soft hover:border-amber disabled:opacity-50"
+                >
+                  Cambiar cámara
+                </button>
+              )}
               <button
                 onClick={cerrar}
                 className="rounded-pill bg-red-500/90 px-6 py-3 text-sm font-medium text-ink-inverse"

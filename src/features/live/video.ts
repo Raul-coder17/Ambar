@@ -8,6 +8,11 @@
 //
 // Igual que audio.ts: nada de este módulo sabe de Gemini ni de React, recibe
 // un callback y devuelve un objeto con cerrar().
+//
+// `cambiarCamara()` intercambia frontal/trasera. El mismo <video> oculto y el
+// mismo intervalo de captura siguen vivos durante el cambio — sólo se
+// reemplaza el stream de abajo — así no hace falta reabrir nada del lado de
+// quien llama ni se vuelve a pedir permiso.
 
 /** Ancho pedido a la cámara; el navegador ajusta el alto para mantener el aspecto. */
 const ANCHO_FRAME = 640
@@ -17,8 +22,21 @@ const INTERVALO_FRAME_MS = 2_000
 
 const CALIDAD_JPEG = 0.7
 
+export type FacingMode = 'user' | 'environment'
+
 export interface Camara {
   cerrar(): Promise<void>
+  /**
+   * Pide un stream nuevo con el `facingMode` opuesto al actual y lo engancha
+   * al mismo `<video>` oculto — cambiar de cámara no siempre se puede hacer
+   * en caliente sobre el stream existente, hace falta un `getUserMedia`
+   * nuevo. Sólo se apaga el stream viejo y se pisa el estado una vez que el
+   * nuevo ya está andando: si el pedido falla (p.ej. el dispositivo no tiene
+   * cámara trasera), todo queda como estaba. El permiso no se vuelve a pedir
+   * porque ya está concedido para "cámara" en este origen, sin importar el
+   * `facingMode`.
+   */
+  cambiarCamara(): Promise<FacingMode>
 }
 
 /**
@@ -28,8 +46,9 @@ export interface Camara {
  * (el toggle de la UI cuenta).
  */
 export async function abrirCamara(alFrame: (base64Jpeg: string) => void): Promise<Camara> {
-  const stream = await navigator.mediaDevices.getUserMedia({
-    video: { facingMode: 'user', width: ANCHO_FRAME },
+  let facing: FacingMode = 'user'
+  let stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: facing, width: ANCHO_FRAME },
   })
 
   // Oculto de verdad (fuera de la vista, sin ocupar layout) pero DENTRO del
@@ -76,6 +95,20 @@ export async function abrirCamara(alFrame: (base64Jpeg: string) => void): Promis
       video.srcObject = null
       video.remove()
       for (const track of stream.getTracks()) track.stop()
+    },
+    async cambiarCamara() {
+      const nuevoFacing: FacingMode = facing === 'user' ? 'environment' : 'user'
+      const nuevoStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: nuevoFacing, width: ANCHO_FRAME },
+      })
+
+      for (const track of stream.getTracks()) track.stop()
+      stream = nuevoStream
+      facing = nuevoFacing
+      video.srcObject = stream
+      await video.play()
+
+      return facing
     },
   }
 }
