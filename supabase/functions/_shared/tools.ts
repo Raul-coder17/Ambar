@@ -228,6 +228,39 @@ const recordarHecho: Tool = {
 
 // --- olvidar_hecho -----------------------------------------------------------
 
+/**
+ * Se le agrega a la nota del `functionResponse` cuando el borrado SÍ ocurrió.
+ *
+ * Es el gemelo de `NOTA_APLICAR_ESTILO` y existe por el mismo hallazgo B, pero
+ * tapa el único caso que aquélla no podía tapar. El contexto congelado del modo
+ * Live sólo se puede AMPLIAR, nunca restar: un hecho nuevo llega igual al modelo
+ * porque el usuario lo acaba de decir y está en los turnos de la charla, pero un
+ * hecho BORRADO sigue entero en `bloqueMemoria` por el resto de la sesión, y no
+ * hay nada que se pueda agregar para que desaparezca — salvo la instrucción de
+ * ignorarlo. Sin esto, "olvidate de que trabajo en X" y ocho minutos después
+ * "¿cómo va lo de X?" es el comportamiento esperado, no un bug raro.
+ *
+ * Que el fallo caiga justo sobre un pedido EXPLÍCITO del usuario es lo que lo
+ * hace peor que el resto de B: `recordar_hecho` se dispara sola y por inferencia,
+ * ésta sólo cuando el usuario la pide directo. Y es el mismo caso que P1 ya trata
+ * como sensible del lado de memoria_vectorial (ese turno no se persiste): esto es
+ * la otra mitad de esa protección, la de dentro de la sesión.
+ *
+ * En modo texto es redundante (el próximo request arma `bloqueMemoria` de nuevo,
+ * ya sin el hecho), pero se manda igual por lo mismo que NOTA_APLICAR_ESTILO:
+ * cuesta una frase y cubre el turno actual.
+ *
+ * LÍMITE CONOCIDO Y ACEPTADO: la nota vive en los turnos de la conversación, que
+ * `contextWindowCompression: { slidingWindow: {} }` SÍ comprime; el hecho viejo
+ * vive en la systemInstruction, que está exenta y no envejece nunca. O sea que en
+ * una llamada larga la corrección puede evaporarse mientras el error persiste.
+ * Aguanta una llamada de 5-15 min; en una de 45 puede no aguantar. Si eso se
+ * observa en uso real, ahí sí se justifica el re-mint con reconexión, y SÓLO para
+ * esta tool (ver la sección de B en PLAN_AMBAR.md).
+ */
+const NOTA_IGNORAR_HECHO =
+  ' Puede que ese dato siga apareciendo más arriba, en la lista de lo que sabés del usuario: ignoralo por el resto de esta conversación y no lo menciones, aunque lo veas ahí.'
+
 const olvidarHecho: Tool = {
   declaration: {
     name: OLVIDAR_HECHO,
@@ -301,7 +334,14 @@ const olvidarHecho: Tool = {
       return { borrado: false, nota: 'No pude borrar ese dato. Seguí la conversación con normalidad.' }
     }
 
-    return { borrado: true, nota: 'Borrado. No hace falta que se lo menciones al usuario.' }
+    // Sólo esta rama lleva la nota: es la única donde la base efectivamente
+    // cambió. Las de fallo (args inválidos, error de lectura, no matcheó, error
+    // de delete) siguen con su nota genérica, por la misma disciplina que fijó D
+    // en `recordar_hecho` — mandar al modelo a ignorar un hecho que sigue
+    // guardado es prometer algo que la próxima sesión no va a cumplir. Ojo con
+    // la rama de "no matcheó", que es la tentadora: ocurre justo cuando el hecho
+    // SIGUE vivo y visible en la lista, pero ahí no se borró nada.
+    return { borrado: true, nota: `Borrado. No hace falta que se lo menciones al usuario.${NOTA_IGNORAR_HECHO}` }
   },
 }
 

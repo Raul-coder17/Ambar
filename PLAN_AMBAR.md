@@ -360,7 +360,7 @@ Resuelve el pendiente conocido #1 de Fase 2: `memoria_vectorial` crece sin lími
 Sesión de solo diagnóstico a partir de un síntoma reportado por Raúl: usando Ámbar entre texto y Live, los dos modos "no van de la mano" — no recuerda del todo algunas cosas, y en particular no respeta instrucciones sobre CÓMO hablarle (tono, estilo), no solo datos sobre él. Se auditó todo el circuito de memoria en ambos modos. **9 divergencias encontradas**, ordenadas por impacto:
 
 - **A — El modo Live NUNCA escribía en `memoria_vectorial`.** No había un solo insert fuera de `ai-chat`. Las transcripciones sólo iban a `ConversacionContext` (memoria RAM, 4g) y al estado local `turnos`. Consecuencias: (1) una charla de voz entera no dejaba rastro en la memoria a largo plazo salvo lo que `recordar_hecho` alcanzara a capturar; (2) tampoco aparecía en `HistorialScreen`, que lee esa tabla; (3) si después de una sesión de voz Raúl escribía un mensaje, `guardarIntercambio` persistía **sólo el par nuevo** — los turnos de voz se le mandaban a Gemini como `contents` pero nunca se persistían. **Ésta es la causa principal del síntoma.** → **implementado, ver la sección de abajo.**
-- **B — La system instruction de Live está congelada toda la sesión.** Se arma una vez en `abrir` y se mintea dentro del token efímero, protegida por `FIELD_MASK` (el cliente no la puede pisar). Durante la sesión: un hecho nuevo no entra en contexto, y un hecho borrado sigue visible para el modelo por el resto de la charla. Las reconexiones de 4e reusan el mismo token, así que siguen congeladas; el único camino que refresca es el re-mint por token vencido, o sea que **una sesión de más de 30 min refresca los hechos y una de 10 min no** — nadie decidió eso, es un accidente. Explica por sí solo por qué en Live "no hace caso" cuando se le pide un cambio de estilo a mitad de charla. → **pendiente, sesión propia.**
+- **B — La system instruction de Live está congelada toda la sesión.** Se arma una vez en `abrir` y se mintea dentro del token efímero, protegida por `FIELD_MASK` (el cliente no la puede pisar). Durante la sesión: un hecho nuevo no entra en contexto, y un hecho borrado sigue visible para el modelo por el resto de la charla. Las reconexiones de 4e reusan el mismo token, así que siguen congeladas. Explica por sí solo por qué en Live "no hace caso" cuando se le pide un cambio de estilo a mitad de charla. → **diagnosticado a fondo el 2026-07-30 (ver "Hallazgo B: causa real y cierre" más abajo), donde se CORRIGEN dos afirmaciones de este bullet: la causa no es el `FIELD_MASK`, y el refresco por re-mint a los 30 min es una hipótesis nunca verificada.**
 - **C — Las instrucciones de estilo se guardan bien pero se renderizan como trivia.** `recordar_hecho` SÍ las captura (el ejemplo del parámetro es literalmente `"prefiere respuestas breves"`). El problema es lo que pasa después, en cuatro capas: (1) el encabezado de `bloqueMemoria` las enmarca como conocimiento mencionable ("usalo con naturalidad cuando venga al caso"), no como regla a obedecer; (2) pierden por rango contra `SYSTEM_INSTRUCTION_BASE`, que va **primero** y en imperativo ("respondé **siempre**... de forma breve y clara") — una nota en tercera persona no le gana a un "siempre" puesto antes; (3) se diluyen como un bullet más en una lista plana mezclada con "se llama Raúl"; (4) en Live se suma B. Opciones evaluadas: sección propia en `bloqueMemoria` con `categoria: 'estilo'` y prioridad declarada (sin migración, funciona en ambos modos porque la función es compartida); tabla/columna dedicada editable desde `MemoriaScreen`; refuerzo sólo por prompt; y devolver la instrucción por la `nota` del `functionResponse` (el único canal que atraviesa el token congelado de Live). → **implementado (A + C + D; B descartada por requerir migración), ver la sección de abajo.**
 - **Asimetría del RAG (confirmada, pero es la 3ª causa en importancia, no la 1ª).** En texto el RAG es automático por mensaje; en Live sólo existe `buscar_en_memoria` a discreción del modelo. Cuatro cosas del diseño actual empujan al modelo a NO llamarla: (1) `INSTRUCCION_ESTILO_VOZ` la mete en la misma bolsa que una búsqueda `advanced` de Tavily y le exige avisar en voz alta antes de usarla, poniéndole un costo social a consultar la memoria — pero cuesta un embedding + un RPC, otro orden de magnitud; (2) su description la desalienta ("que no esté en la lista de hechos", y la lista de hechos siempre está); (3) `contextWindowCompression` descarta turnos viejos y en Live nada los recupera, mientras en texto lo que sale de la ventana vuelve por RAG; (4) al abrir no hay contra qué buscar — pero la conclusión correcta de eso no es "entonces nada": **en t=0 la clave de recuperación correcta es recencia, no similitud.** Opciones: traer los últimos 3-5 intercambios por `created_at desc` en `abrir` (un `select` común, sin embedding, y va en la system instruction donde no choca con B); bajar la barrera de la tool en el prompt; y RAG por turno inyectado con `sendClientContent` — **descartada**, contradice de frente la decisión de Fase 2 de no meter recuerdos como turnos falsos, y en Live ése es el único canal disponible. → **implementado (recencia al abrir + bajar la barrera de la tool), ver la sección de abajo.**
 - **Los recuerdos llegan a Live sin ningún marco.** → **implementado junto con la asimetría de RAG** (era condición de ella, ver la sección de abajo). En texto `bloqueMemoria` los envuelve con una advertencia explícita ("son recuerdos tuyos, no cosas que se hayan dicho recién"); `buscar_en_memoria` devuelve el `contenido` crudo, sin ninguna aclaración de que son viejos. Justo el riesgo que el diseño de texto se tomó el trabajo de prevenir, reintroducido en el otro modo. Además el texto de ese marco dice "que se parecen a lo que acaba de **escribir**", que asume modo texto — hoy no se ve porque en Live el bloque nunca se renderiza, pero es una bomba si se implementa el RAG al abrir.
@@ -446,7 +446,7 @@ Implementa el hallazgo C del diagnóstico de simetría con las opciones **A + C 
 
 ### D — La nota del `functionResponse`
 
-- **Es el único canal que atraviesa el token congelado de Live** (hallazgo B, sin resolver). Un hecho de estilo guardado a mitad de una charla hablada no entra en `bloqueMemoria` hasta la sesión siguiente; la nota sí llega al modelo en ese mismo turno.
+- **Es el único canal que atraviesa el token congelado de Live** (hallazgo B). Un hecho de estilo guardado a mitad de una charla hablada no entra en `bloqueMemoria` hasta la sesión siguiente; la nota sí llega al modelo en ese mismo turno. El diagnóstico del 2026-07-30 confirmó que ese "único" es literal y no una forma de hablar: ver "Hallazgo B: causa real y cierre".
 - **Sólo la llevan las 5 ramas donde el hecho quedó EN VIGOR** (guardado, ya estaba, ya estaba + borró obsoleto, update, 23505). Las 3 de fallo real (args inválidos, error de lectura, error de insert) siguen con su nota genérica: ahí no se persistió nada, y mandar al modelo a obedecer algo que no se guardó es prometer lo que la próxima sesión no va a cumplir.
 - **La rama de "ya estaba" es la más importante, no la menos** — y es la que un fix ingenuo habría dejado afuera. Si el usuario repite "hablame más corto" es *porque no le hicieron caso*: por eso ahí no se usa el sufijo genérico sino un texto propio que **saca** el "no hizo falta anotarlo de nuevo", que invita justo a lo contrario de obedecer.
 
@@ -455,7 +455,7 @@ Implementa el hallazgo C del diagnóstico de simetría con las opciones **A + C 
 - **No es retroactivo y no hay forma de corregirlo desde la app.** Los hechos de estilo ya guardados quedaron con `preferencia`/`null` y se siguen renderizando en la lista genérica. Reclasificarlos es imposible por el flujo normal: si el modelo vuelve a llamar `recordar_hecho` con el mismo texto y `categoria: 'estilo'`, cae en la rama "ya estaba", que **nunca toca la categoría**; y `MemoriaScreen` muestra el chip de categoría pero no deja editarlo. Para arreglar uno viejo hay que borrarlo y volver a decirlo, o tocarlo desde el dashboard. **Consecuencia para validar: hay que usar una instrucción de estilo NUEVA — con una ya guardada no se ve ningún cambio y parece que no funciona.**
 - **Riesgo de sobre-etiquetado.** Si el modelo marca "le gusta el café" como estilo, ese dato entra a un bloque imperativo de override. Se mitiga con la definición estrecha de la description, pero es lo principal a vigilar en el uso real.
 - **Sin tope de cantidad:** 15 instrucciones de estilo acumuladas serían un bloque imperativo enorme y probablemente contradictorio consigo mismo.
-- **B sigue vivo.** D es paliativo, no cura: funciona en el turno donde dispara la tool y depende de que el modelo lo arrastre en su propio contexto por el resto de la sesión. Una sesión de Live **nueva** sí lo toma por `bloqueMemoria`.
+- **B sigue vivo.** D es paliativo, no cura: funciona en el turno donde dispara la tool y depende de que el modelo lo arrastre en su propio contexto por el resto de la sesión. Una sesión de Live **nueva** sí lo toma por `bloqueMemoria`. *(Actualización 2026-07-30: se decidió que el paliativo es la respuesta correcta y no un parche a la espera de una cura — ver "Hallazgo B: causa real y cierre" para por qué la solución de fondo se descartó, y para el gemelo de D que cubre `olvidar_hecho`.)*
 
 ### Verificación y despliegue
 
@@ -513,6 +513,82 @@ Por eso el arreglo del marco no era un extra que quedara lindo hacer en la misma
 - **Ejecutado, no leído:** se verificó que las 4 secciones salen en orden con el estilo último en los dos modos, que reanudando no se renderiza el bloque, que el call site de texto (sin tercer argumento) queda igual que antes, y que los dos marcos comparten el "ANTERIORES". `recuerdosRecientes` se probó con un cliente falso: orden cronológico invertido desde el `desc`, filtrado de vacíos/`null`, `limit` correcto, y `[]` best-effort ante error.
 - Ambas redesplegadas y con smoke test devolviendo el 401 del propio código. Sin migraciones.
 - **Pendiente de validación en vivo:** que Raúl (1) hable de un tema por voz, cierre, y al abrir una sesión NUEVA confirme que Ámbar retoma el hilo sin que se lo pidan; (2) confirme que lo hace como algo pasado ("la última vez me contaste...") y no como si se acabara de decir; (3) le pregunte por algo hablado hace tiempo y confirme que **busca antes** de decir que no se acuerda, y en silencio, sin anunciar la búsqueda; (4) fuerce una reconexión a mitad de charla (o espere un `goAway`) y confirme que **no** repite ni trata como pasado lo que se acaba de decir — es el caso `reanudando`, el más delicado; y (5) vigile que no llame a `buscar_en_memoria` a cada rato por cosas que nunca se hablaron.
+
+## Hallazgo B: causa real y cierre (2026-07-30)
+
+Sesión de diagnóstico sobre el último hallazgo pendiente del diagnóstico de simetría. **Corrige dos afirmaciones del bullet B original** y cierra el hallazgo con un paliativo en vez de una solución de fondo, por las razones de abajo.
+
+### La causa no es el `FIELD_MASK`
+
+El bullet B decía "protegida por `FIELD_MASK`". Eso identifica el elemento equivocado. La Live API **sí tiene** un mecanismo documentado para refrescar la system instruction a mitad de sesión — mandar `clientContent` con `role: "system"`, que según la doc "queda en vigor por el resto de la sesión". O sea que B no es una limitación conceptual de la API. Está bloqueado por **tres muros independientes, y cada uno alcanza por sí solo**:
+
+1. **El protocolo.** `setup` se manda "en el primer (y sólo en el primer) `BidiGenerateContentClientMessage`", y la doc es explícita: *"You cannot update the configuration while the connection is open."* Los cuatro mensajes cliente→servidor son `setup`, `clientContent`, `realtimeInput`, `toolResponse`. No hay un quinto.
+2. **La superficie de API.** El `role: "system"` está marcado *"Only available when using the Agent Platform Gemini API (formerly Vertex AI)"*. Ámbar pega contra `generativelanguage.googleapis.com` con keys BYOK de AI Studio — la Developer API, donde ese canal no existe. Migrar a Vertex significaría service accounts y proyecto de GCP en vez de la key del usuario: **vuela el modelo BYOK entero**.
+3. **El modelo.** `gemini-3.1-flash-live-preview` (nuestro `LIVE_MODEL`) **rechaza `send_client_content` con WebSocket 1007 después del primer turno del modelo** — sólo lo acepta para sembrar historial inicial. El plugin de LiveKit loguea literalmente "update_instructions is not compatible with 'gemini-3.1-flash-live-preview' and will be ignored".
+
+Fuentes: [Live API reference](https://ai.google.dev/api/live) · [Firebase AI Logic — sessions](https://firebase.google.com/docs/ai-logic/live-api/sessions) · [livekit/agents#5496](https://github.com/livekit/agents/issues/5496)
+
+Tres consecuencias que valen más que la respuesta:
+
+- **El `FIELD_MASK` es el menos vinculante de los tres, y el único bajo nuestro control.** Sacar `systemInstruction` de la máscara no cambiaría nada: el cliente podría aportarla, pero seguiría siendo sólo al conectar. La máscara hace que la instrucción sea **del servidor**; el protocolo es lo que la hace **congelada**.
+- **La nota del `functionResponse` (D) no es *un* canal que atraviesa el token: es demostrablemente *el único*.** Eso sube a D de hack ingenioso a respuesta arquitectónicamente correcta.
+- **El "RAG por turno con `sendClientContent`" descartado en Fase 2 tampoco habría funcionado técnicamente** — da 1007 en 3.1. La decisión era correcta por dos motivos independientes.
+
+### "Refresca a los 30 min" es una hipótesis no verificada
+
+El bullet B afirmaba que el re-mint por token vencido refresca los hechos, y de ahí que "una sesión de más de 30 min refresca y una de 10 no — es un accidente". **Nunca se midió.** Lo que hay a favor es una línea de la doc: se pueden cambiar los parámetros de configuración —menos el modelo— al reanudar por session resumption. Eso hace el camino **plausible**, no confirmado, para esta combinación exacta (token efímero + `FIELD_MASK` + handle de resumption + modelo preview). Si alguna vez se quiere cerrar B "de verdad", **medir esto es el primer paso**, porque todo fix basado en reconexión depende de ello.
+
+En la práctica importa poco: una sesión de voz real en un PWA de teléfono dura minutos, no media hora, así que casi nadie llega al re-mint. La inconsistencia es sobre todo teórica.
+
+### Lo único que a B le quedaba sin cubrir: `olvidar_hecho`
+
+Recorriendo cada mutación posible de `memoria_hechos` durante una sesión de voz, aparece el patrón: **el contexto congelado sólo se puede AMPLIAR, nunca restar.**
+
+| Mutación | ¿Entra en `bloqueMemoria`? | ¿Lo compensa algo? |
+|---|---|---|
+| `recordar_hecho` estilo, nuevo | No | **Sí** — nota D |
+| `recordar_hecho` estilo, "ya estaba" | No | **Sí** — la rama reforzada de D |
+| `recordar_hecho` no-estilo, nuevo | No | **Sí, de hecho** — el usuario lo acaba de decir, está en los turnos |
+| `recordar_hecho` con `reemplaza` | No, y el viejo **sigue** en la lista | Parcial — el nuevo llega por la charla, el viejo queda visible |
+| **`olvidar_hecho`** | **No — el hecho borrado sigue entero en la lista** | **Nada** → lo que arregla esta sesión |
+
+Todas las mutaciones de tipo "agregar" se auto-transportan: la información llega por la conversación misma o por la nota. La única que exige **restar** es la única sin canal.
+
+Por qué es el peor caso de B y no uno más:
+
+- **Falla sobre un pedido explícito y deliberado.** `recordar_hecho` se dispara sola y por inferencia; `olvidar_hecho` sólo cuando el usuario la pide directo. Fallar en lo que se pidió a propósito erosiona mucho más la confianza que fallar en lo inferido.
+- **Es el caso sensible.** El motivo realista para decir "olvidate de eso" en voz alta es haber dicho algo que uno prefiere no dejar registrado (salud, un nombre, una situación laboral). **P1 ya trata este caso como sensible** del lado de `memoria_vectorial` (ese turno no se persiste): B dejaba abierta la otra mitad de esa misma protección, la de dentro de la sesión.
+- Síntoma concreto: "olvidate de que trabajo en X" → ocho minutos después "¿cómo va lo de X?". Con el diseño anterior eso era el comportamiento **esperado**, no un bug raro.
+
+### El fix: `NOTA_IGNORAR_HECHO`, mismo patrón que D
+
+Gemelo de `NOTA_APLICAR_ESTILO` en `_shared/tools.ts`, sobre la rama `borrado: true` de `olvidar_hecho`: la nota le dice al modelo que ese dato puede seguir apareciendo más arriba en la lista y que lo ignore por el resto de la conversación. Mismo canal probado, sin reconexión, sin riesgo de protocolo.
+
+- **Sólo la rama donde la base efectivamente cambió**, misma disciplina que fijó D. Las 4 de fallo (args inválidos, error de lectura, no matcheó, error de delete) siguen con su nota genérica. **Ojo con la rama de "no matcheó", que es la tentadora**: ocurre justo cuando el hecho sigue vivo y visible en la lista (el modelo copió mal el string exacto, ver S1), pero ahí no se borró nada — mandar a ignorar un hecho que sigue guardado es prometer lo que la próxima sesión no va a cumplir.
+- **En texto es redundante** (el próximo request arma `bloqueMemoria` de nuevo, ya sin el hecho) pero se manda igual, por lo mismo que D: cuesta una frase y cubre el turno actual.
+
+### Por qué NO se hizo la solución de fondo
+
+Se evaluó el re-mint con reconexión silenciosa y se descartó:
+
+- **No existe fix sin reconexión** (ver los tres muros). Y reconectar justo después de "olvidate de X" le da al usuario un silencio y un `'reconectando'` exactamente en el momento en que pidió algo: **el modo de falla del fix se siente peor que el bug**. Además `reconectar()` apaga la cámara.
+- **La frecuencia lo mata.** `SYSTEM_INSTRUCTION_BASE` empuja a llamar `recordar_hecho` todo el tiempo y sin pedir permiso; reconectar por cada hecho guardado sería un desastre. Habría que restringirlo a `olvidar_hecho` — que es el mismo alcance al que llega el fix barato, así que la reconexión no compra alcance extra.
+- **Se apoyaría en terreno no medido**: la hipótesis de resumption de arriba, en un modelo preview que ya tiene una regresión conocida de `clientContent`.
+
+**Dato para el futuro: el lado servidor del fix de fondo ya está construido.** `abrir` con un `session_id` existente + handle ya re-mintea con hechos frescos y saltea correctamente el bloque de recientes (la guarda `reanudando`). Si algún día hace falta, el trabajo es sólo de cliente: una vía de re-mint forzado en `intentarReconectar`.
+
+### Limitación conocida y aceptada, con su condición de disparo
+
+**La nota puede decaer en llamadas largas.** Hay una asimetría de permanencia: el hecho viejo vive en la `systemInstruction`, que está **exenta del sliding window** de `contextWindowCompression` y no envejece nunca; la nota correctiva vive en los turnos, que **sí** se comprimen. En una llamada larga la corrección puede evaporarse mientras el error persiste.
+
+Aguanta una llamada de 5-15 min; en una de 45 puede no aguantar. **Condición de disparo para revisar:** si en uso real una llamada larga resucita un hecho olvidado *después* de que la nota se emitió, ahí sí se justifica el re-mint con reconexión, y **sólo para esta tool**.
+
+### Verificación y despliegue
+
+- `deno check` sobre `ai-chat/index.ts` y `live/index.ts`: **0 errores**.
+- **Ejecutado, no leído:** se corrió el handler de `olvidar_hecho` contra un cliente falso cubriendo las 5 ramas (args inválidos, error de lectura, no matcheó, error de delete, borrado OK), confirmando que la nota nueva aparece **sólo** en `borrado: true` y en ninguna de las 4 de fallo. Se chequea además el *contenido* de la nota (que advierta que el dato puede seguir visible **y** que pida no mencionarlo), para que un reword que pierda esa mitad del mensaje no pase como verde.
+- Ambas funciones redesplegadas y con smoke test devolviendo el 401 del propio código (`{"error":"Falta el header Authorization."}`), no el del gateway. Sin migraciones.
+- **Pendiente de validación en vivo:** que Raúl (1) en una sesión de voz le pida a Ámbar que olvide un hecho que **ya estaba guardado antes de abrir el micrófono** (es la condición: uno guardado durante la misma sesión nunca estuvo en el bloque congelado, así que no prueba nada); (2) siga hablando y, más adelante en **esa misma llamada**, lo mencione de refilón o le pregunte algo relacionado, confirmando que Ámbar **no** lo trae de vuelta; (3) confirme en `MemoriaScreen` que el hecho efectivamente se borró; y (4) si hace una llamada larga (30+ min), vigile si el hecho reaparece hacia el final — ése es exactamente el decaimiento descrito arriba y es el dato que decidiría si se hace la reconexión.
 
 ## Límites de Gemini y manejo de cuota (ya definido, no improvisar aquí)
 
