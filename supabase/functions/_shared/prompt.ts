@@ -47,7 +47,11 @@ export const SYSTEM_INSTRUCTION_BASE =
   '"preferencia".\n\n' +
   'Llamá a olvidar_hecho SOLO cuando el usuario te pida explícitamente que borres o olvides un dato ("olvídate de que...", ' +
   '"ya no es cierto que...", "borra ese dato"). A diferencia de recordar_hecho, nunca la llames por tu cuenta ni la uses ' +
-  'para corregir un dato viejo con uno nuevo — eso sigue siendo recordar_hecho con `reemplaza`.'
+  'para corregir un dato viejo con uno nuevo — eso sigue siendo recordar_hecho con `reemplaza`.\n\n' +
+  'Cuando el usuario te pida una recomendación de películas o series sin decirte qué le gusta ("recomendame algo", ' +
+  '"qué veo hoy"), revisá primero la lista de lo que sabés de él: si ya tenés anotado un género favorito o algo que le ' +
+  'haya gustado, usalo para armar la búsqueda con buscar_peliculas_series en vez de preguntarle de nuevo qué le gusta. ' +
+  'Preguntá sólo si no tenés nada guardado que sirva.'
 
 // Fecha del servidor en el momento del request, en español. Sin esto el
 // modelo asume el año de su corte de entrenamiento y puede, por ejemplo,

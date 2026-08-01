@@ -1,23 +1,31 @@
 // Edge Function: manage-ai-key
 //
-// Guarda/borra las API keys BYOK del usuario autenticado (Gemini, y desde
-// Fase 3 también Tavily) en `ajustes_ia`. Ninguna key se persiste en texto
-// plano: se cifra con AES-GCM (secret `AI_KEY_ENCRYPTION_SECRET`, definido
-// como secret de proyecto) antes de escribirla. Ninguna respuesta de esta
-// función devuelve una key, ni en texto plano ni cifrada.
+// Guarda/borra las API keys BYOK del usuario autenticado (Gemini, Tavily, y
+// desde el backlog adelantado también Spoonacular y TMDB) en `ajustes_ia`.
+// Ninguna key se persiste en texto plano: se cifra con AES-GCM (secret
+// `AI_KEY_ENCRYPTION_SECRET`, definido como secret de proyecto) antes de
+// escribirla. Ninguna respuesta de esta función devuelve una key, ni en texto
+// plano ni cifrada.
 //
-// `provider` ('gemini' | 'tavily', default 'gemini' por compatibilidad con el
-// cliente de Fase 1) decide qué columna se toca. Gemini es distinto en dos
-// cosas, ninguna aplicable a Tavily:
-//   - se valida contra la API antes de guardar (GET /v1beta/models);
-//   - controla `ia_habilitada`, que es lo que gatea si el chat corre.
-// Tavily no tiene endpoint de "solo validar" sin gastar una búsqueda real, así
-// que se guarda sin validar (se decidió no pagar esa unidad de cuota sólo para
-// probar la key) — si es inválida, `buscar_en_internet` lo va a reportar con
-// un mensaje claro la primera vez que se use. Y al no tener un flag de
-// habilitación propio, guardar/borrar la key de Tavily nunca toca
-// `gemini_api_key_encrypted` ni `ia_habilitada` (el upsert sólo lista la
-// columna de Tavily).
+// `provider` ('gemini' | 'tavily' | 'spoonacular' | 'tmdb', default 'gemini'
+// por compatibilidad con el cliente de Fase 1) decide qué columna se toca.
+// Sólo Gemini controla `ia_habilitada` (gatea si el chat corre en absoluto);
+// las otras tres son aditivas — cada tool chequea directamente si su columna
+// es NULL, y guardar/borrar su key nunca toca `gemini_api_key_encrypted` ni
+// `ia_habilitada` (el upsert de cada provider sólo lista sus propias
+// columnas).
+//
+// VALIDAR AL GUARDAR: no es lo mismo para las cuatro.
+//   - gemini: valida contra GET /v1beta/models (gratis, sin cuota de por medio).
+//   - tmdb: valida contra GET /3/authentication (igual de gratis — TMDB no
+//     tiene cuota por puntos, sólo rate-limiting, así que probar la key no
+//     cuesta nada real).
+//   - tavily y spoonacular: NO se validan al guardar. Ninguna de las dos tiene
+//     un endpoint de "solo probar la key" sin gastar una unidad de cuota real
+//     (búsqueda o receta), y en las dos el free tier es limitado (~1000/mes
+//     Tavily, 150 puntos/día Spoonacular) como para pagarlo sólo por validar.
+//     Si la key es inválida, la tool correspondiente lo va a reportar con un
+//     mensaje claro la primera vez que se use de verdad.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -51,6 +59,13 @@ async function encryptApiKey(apiKey: string, secretB64: string): Promise<string>
 async function isValidGeminiKey(apiKey: string): Promise<boolean> {
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`,
+  )
+  return res.ok
+}
+
+async function isValidTmdbKey(apiKey: string): Promise<boolean> {
+  const res = await fetch(
+    `https://api.themoviedb.org/3/authentication?api_key=${encodeURIComponent(apiKey)}`,
   )
   return res.ok
 }
@@ -97,7 +112,29 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: 'Body inválido.' }, 400)
   }
 
-  const provider = body.provider === 'tavily' ? 'tavily' : 'gemini'
+  const provider =
+    body.provider === 'tavily' || body.provider === 'spoonacular' || body.provider === 'tmdb'
+      ? body.provider
+      : 'gemini'
+
+  // Columna de `ajustes_ia` que le corresponde a cada provider.
+  const COLUMNA: Record<typeof provider, string> = {
+    gemini: 'gemini_api_key_encrypted',
+    tavily: 'tavily_api_key_encrypted',
+    spoonacular: 'spoonacular_api_key_encrypted',
+    tmdb: 'tmdb_api_key_encrypted',
+  }
+  // Nombre de la flag que devuelve el body de respuesta (además de `ok`), para
+  // que el cliente sepa qué estado reflejar sin tener que adivinar por
+  // provider. `gemini` es la única con una flag real en la tabla
+  // (`ia_habilitada`); las otras tres son sintéticas (true al guardar, false
+  // al borrar) porque no tienen columna de habilitación propia.
+  const FLAG: Record<typeof provider, string> = {
+    gemini: 'ia_habilitada',
+    tavily: 'tavily_habilitada',
+    spoonacular: 'spoonacular_habilitada',
+    tmdb: 'tmdb_habilitada',
+  }
 
   if (body.action === 'save') {
     const apiKey = body.apiKey?.trim()
@@ -111,13 +148,18 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: 'La API key no es válida según Gemini.' }, 422)
       }
     }
+    if (provider === 'tmdb') {
+      const valid = await isValidTmdbKey(apiKey)
+      if (!valid) {
+        return jsonResponse({ error: 'La API key no es válida según TMDB.' }, 422)
+      }
+    }
+    // tavily y spoonacular: sin validación previa, ver el comentario de cabecera.
 
     const encrypted = await encryptApiKey(apiKey, encryptionSecret)
 
-    const row =
-      provider === 'gemini'
-        ? { user_id: user.id, gemini_api_key_encrypted: encrypted, ia_habilitada: true }
-        : { user_id: user.id, tavily_api_key_encrypted: encrypted }
+    const row: Record<string, unknown> = { user_id: user.id, [COLUMNA[provider]]: encrypted }
+    if (provider === 'gemini') row.ia_habilitada = true
 
     const { error: upsertError } = await supabase.from('ajustes_ia').upsert(row, { onConflict: 'user_id' })
 
@@ -125,16 +167,12 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'No se pudo guardar la key.' }, 500)
     }
 
-    return provider === 'gemini'
-      ? jsonResponse({ ok: true, ia_habilitada: true })
-      : jsonResponse({ ok: true, tavily_habilitada: true })
+    return jsonResponse({ ok: true, [FLAG[provider]]: true })
   }
 
   if (body.action === 'remove') {
-    const row =
-      provider === 'gemini'
-        ? { user_id: user.id, gemini_api_key_encrypted: null, ia_habilitada: false }
-        : { user_id: user.id, tavily_api_key_encrypted: null }
+    const row: Record<string, unknown> = { user_id: user.id, [COLUMNA[provider]]: null }
+    if (provider === 'gemini') row.ia_habilitada = false
 
     const { error: upsertError } = await supabase.from('ajustes_ia').upsert(row, { onConflict: 'user_id' })
 
@@ -142,9 +180,7 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: provider === 'gemini' ? 'No se pudo desactivar la IA.' : 'No se pudo quitar la key.' }, 500)
     }
 
-    return provider === 'gemini'
-      ? jsonResponse({ ok: true, ia_habilitada: false })
-      : jsonResponse({ ok: true, tavily_habilitada: false })
+    return jsonResponse({ ok: true, [FLAG[provider]]: false })
   }
 
   return jsonResponse({ error: 'Acción desconocida.' }, 400)

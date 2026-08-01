@@ -26,7 +26,9 @@ import { decryptApiKey } from './crypto.ts'
 import { generarEmbedding } from './embeddings.ts'
 import { CATEGORIA_ESTILO, clave, esHechoDeEstilo, MAX_LARGO_HECHO, normalizarArgsHecho } from './memoria.ts'
 import { buscarRecuerdos } from './recuerdos.ts'
+import { buscarRecetas } from './spoonacular.ts'
 import { buscarEnInternet } from './tavily.ts'
+import { buscarPeliculasSeries } from './tmdb.ts'
 
 export interface ToolDeclaration {
   name: string
@@ -502,9 +504,172 @@ const buscarEnInternetTool: Tool = {
   },
 }
 
+// --- buscar_recetas (Spoonacular, backlog adelantado) -----------------------
+//
+// Mismo patrón BYOK que buscar_en_internet: key propia del usuario, cifrada en
+// `ajustes_ia`, sin validar al guardar (ver el comentario de `manage-ai-key`).
+//
+// LOS INGREDIENTES PUEDEN VENIR DE LA CÁMARA. En modo Live el modelo ve lo que
+// la cámara del usuario apunta (Fase 4f): si reconoce ingredientes o platos a
+// simple vista, tiene que poder pasarlos acá igual que si el usuario los
+// hubiera dicho en voz alta — no hace falta que los liste por su cuenta. Está
+// en la description (no sólo en la system instruction) porque es una regla de
+// CUÁNDO y CON QUÉ ARGUMENTOS llamar a esta tool en particular, no una regla
+// general de estilo de la charla.
+const buscarRecetasTool: Tool = {
+  declaration: {
+    name: 'buscar_recetas',
+    description:
+      'Busca recetas de cocina, opcionalmente con su información nutricional. Se puede buscar por ingredientes disponibles, por un plato o tipo de comida, o por los dos juntos. ' +
+      'Los ingredientes pueden venir de lo que el usuario ESCRIBE O DICE, pero también de lo que vos identificás por CÁMARA en una conversación de voz (ingredientes o platos que ves en la imagen): ' +
+      'en ese caso pasalos igual en `ingredientes`, no hace falta que el usuario los liste él mismo. ' +
+      'Pedí `incluir_nutricion` sólo si el usuario pregunta por calorías, proteínas u otro dato nutricional.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        consulta: {
+          type: 'STRING',
+          description: 'El plato o tipo de comida a buscar, en pocas palabras (ej. "pasta", "postre de chocolate"). Opcional si mandás `ingredientes`.',
+        },
+        ingredientes: {
+          type: 'ARRAY',
+          items: { type: 'STRING' },
+          description:
+            'Ingredientes que el usuario tiene disponibles o que identificaste vos por cámara. Opcional si mandás `consulta`. Al menos uno de los dos es obligatorio.',
+        },
+        incluir_nutricion: {
+          type: 'BOOLEAN',
+          description: 'true si el usuario pidió información nutricional (calorías, proteína, grasa, carbohidratos). Por defecto false.',
+        },
+      },
+    },
+  },
+
+  handler: async (args, ctx) => {
+    const consulta = typeof args.consulta === 'string' ? args.consulta.trim() : ''
+    const ingredientes = Array.isArray(args.ingredientes)
+      ? args.ingredientes.filter((i): i is string => typeof i === 'string' && i.trim().length > 0).map((i) => i.trim())
+      : []
+    const incluirNutricion = args.incluir_nutricion === true
+
+    if (!consulta && ingredientes.length === 0) {
+      return { ok: false, error: 'No se especificó ni una consulta ni ingredientes para buscar recetas.' }
+    }
+
+    const { data: settings, error } = await ctx.supabase
+      .from('ajustes_ia')
+      .select('spoonacular_api_key_encrypted')
+      .eq('user_id', ctx.userId)
+      .maybeSingle()
+
+    if (error) {
+      console.error('[buscar_recetas] no se pudo leer la key de Spoonacular:', error.message)
+      return { ok: false, error: 'No pude acceder a la configuración de recetas en este momento.' }
+    }
+
+    const encrypted = settings?.spoonacular_api_key_encrypted
+    if (!encrypted) {
+      return {
+        ok: false,
+        error: 'No tenés una API key de Spoonacular configurada. Guardala en Ajustes para poder buscar recetas.',
+      }
+    }
+
+    let apiKey: string
+    try {
+      apiKey = await decryptApiKey(encrypted, ctx.encryptionSecret)
+    } catch (err) {
+      console.error('[buscar_recetas] no se pudo descifrar la key:', err instanceof Error ? err.message : err)
+      return { ok: false, error: 'No pude leer tu key de Spoonacular. Volvé a guardarla en Ajustes.' }
+    }
+
+    return await buscarRecetas(apiKey, { consulta, ingredientes, incluirNutricion })
+  },
+}
+
+// --- buscar_peliculas_series (TMDB, backlog adelantado) ---------------------
+//
+// PERSONALIZACIÓN CON MEMORIA: esta tool no toca `memoria_hechos` — no hace
+// falta. Los hechos del usuario (género favorito, algo que le gustó) ya van
+// SIEMPRE en la system instruction vía `bloqueMemoria`, idéntica en los dos
+// modos. La description de acá le dice al modelo que los use para armar
+// `genero`/`consulta` sin volver a preguntar; el refuerzo en SYSTEM_INSTRUCTION_BASE
+// (prompt.ts) es el mismo remedio que ya se usó con recordar_hecho: reforzar en
+// la system instruction lo que la description sola no bastó para lograr.
+const buscarPeliculasSeriesTool: Tool = {
+  declaration: {
+    name: 'buscar_peliculas_series',
+    description:
+      'Busca o recomienda películas y series. Con `consulta` busca por título, actor o tema puntual. Sin `consulta`, arma una recomendación: ' +
+      'con `genero` filtra por ese género y devuelve lo más popular; sin ninguno de los dos, devuelve lo más popular del momento en general. ' +
+      'Si el usuario pide una recomendación sin dar detalles ("recomendame algo", "qué veo hoy"), fijate primero si ya sabés su género favorito o algo que le haya gustado ' +
+      '(está en la lista de lo que sabés del usuario) y usalo en `genero` o `consulta` en vez de preguntarle de nuevo qué le gusta.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        consulta: {
+          type: 'STRING',
+          description: 'Título, actor o tema a buscar. Opcional.',
+        },
+        genero: {
+          type: 'STRING',
+          description: 'Género para recomendar (ej. "terror", "comedia", "ciencia ficción"). Opcional, se ignora si mandás `consulta`.',
+        },
+        tipo: {
+          type: 'STRING',
+          enum: ['pelicula', 'serie'],
+          description: 'Opcional: limitar a películas o a series. Sin esto, incluye los dos tipos.',
+        },
+      },
+    },
+  },
+
+  handler: async (args, ctx) => {
+    const consulta = typeof args.consulta === 'string' ? args.consulta.trim() : ''
+    const genero = typeof args.genero === 'string' ? args.genero.trim() : ''
+    const tipo = args.tipo === 'pelicula' || args.tipo === 'serie' ? args.tipo : undefined
+
+    const { data: settings, error } = await ctx.supabase
+      .from('ajustes_ia')
+      .select('tmdb_api_key_encrypted')
+      .eq('user_id', ctx.userId)
+      .maybeSingle()
+
+    if (error) {
+      console.error('[buscar_peliculas_series] no se pudo leer la key de TMDB:', error.message)
+      return { ok: false, error: 'No pude acceder a la configuración de películas y series en este momento.' }
+    }
+
+    const encrypted = settings?.tmdb_api_key_encrypted
+    if (!encrypted) {
+      return {
+        ok: false,
+        error: 'No tenés una API key de TMDB configurada. Guardala en Ajustes para poder buscar películas y series.',
+      }
+    }
+
+    let apiKey: string
+    try {
+      apiKey = await decryptApiKey(encrypted, ctx.encryptionSecret)
+    } catch (err) {
+      console.error('[buscar_peliculas_series] no se pudo descifrar la key:', err instanceof Error ? err.message : err)
+      return { ok: false, error: 'No pude leer tu key de TMDB. Volvé a guardarla en Ajustes.' }
+    }
+
+    return await buscarPeliculasSeries(apiKey, { consulta, genero, tipo })
+  },
+}
+
 // ---------------------------------------------------------------------------
 
-export const TOOLS: Tool[] = [recordarHecho, olvidarHecho, buscarEnMemoriaTool, buscarEnInternetTool]
+export const TOOLS: Tool[] = [
+  recordarHecho,
+  olvidarHecho,
+  buscarEnMemoriaTool,
+  buscarEnInternetTool,
+  buscarRecetasTool,
+  buscarPeliculasSeriesTool,
+]
 
 export function toolDeclarations(modo: ModoConversacion): ToolDeclaration[] {
   return TOOLS.filter((t) => !t.soloModo || t.soloModo === modo).map((t) => t.declaration)

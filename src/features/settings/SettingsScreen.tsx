@@ -22,15 +22,25 @@ export function SettingsScreen() {
   const { session } = useAuth()
   const [iaHabilitada, setIaHabilitada] = useState(false)
   const [tavilyConfigurada, setTavilyConfigurada] = useState(false)
+  const [spoonacularConfigurada, setSpoonacularConfigurada] = useState(false)
+  const [tmdbConfigurada, setTmdbConfigurada] = useState(false)
   const [loadingEstado, setLoadingEstado] = useState(true)
   const [apiKey, setApiKey] = useState('')
   const [tavilyKey, setTavilyKey] = useState('')
+  const [spoonacularKey, setSpoonacularKey] = useState('')
+  const [tmdbKey, setTmdbKey] = useState('')
   const [saving, setSaving] = useState(false)
   const [savingTavily, setSavingTavily] = useState(false)
+  const [savingSpoonacular, setSavingSpoonacular] = useState(false)
+  const [savingTmdb, setSavingTmdb] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [info, setInfo] = useState<string | null>(null)
   const [tavilyError, setTavilyError] = useState<string | null>(null)
   const [tavilyInfo, setTavilyInfo] = useState<string | null>(null)
+  const [spoonacularError, setSpoonacularError] = useState<string | null>(null)
+  const [spoonacularInfo, setSpoonacularInfo] = useState<string | null>(null)
+  const [tmdbError, setTmdbError] = useState<string | null>(null)
+  const [tmdbInfo, setTmdbInfo] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -38,13 +48,15 @@ export function SettingsScreen() {
     async function load() {
       const { data } = await supabase
         .from('ajustes_ia')
-        .select('ia_habilitada, tavily_api_key_encrypted')
+        .select('ia_habilitada, tavily_api_key_encrypted, spoonacular_api_key_encrypted, tmdb_api_key_encrypted')
         .eq('user_id', session!.user.id)
         .maybeSingle()
 
       if (!cancelled) {
         setIaHabilitada(Boolean(data?.ia_habilitada))
         setTavilyConfigurada(Boolean(data?.tavily_api_key_encrypted))
+        setSpoonacularConfigurada(Boolean(data?.spoonacular_api_key_encrypted))
+        setTmdbConfigurada(Boolean(data?.tmdb_api_key_encrypted))
         setLoadingEstado(false)
       }
     }
@@ -143,6 +155,96 @@ export function SettingsScreen() {
 
     setTavilyConfigurada(Boolean(data?.tavily_habilitada))
     setTavilyInfo('Clave de Tavily quitada.')
+  }
+
+  async function handleSaveSpoonacular(e: FormEvent) {
+    e.preventDefault()
+    if (!spoonacularKey.trim() || savingSpoonacular) return
+
+    setSavingSpoonacular(true)
+    setSpoonacularError(null)
+    setSpoonacularInfo(null)
+
+    const { data, error } = await supabase.functions.invoke('manage-ai-key', {
+      body: { action: 'save', apiKey: spoonacularKey.trim(), provider: 'spoonacular' },
+    })
+
+    setSavingSpoonacular(false)
+
+    if (error) {
+      setSpoonacularError(await mensajeDeError(error, 'No se pudo guardar la key de Spoonacular.'))
+      return
+    }
+
+    setSpoonacularConfigurada(Boolean(data?.spoonacular_habilitada))
+    setSpoonacularKey('')
+    setSpoonacularInfo('Clave de Spoonacular guardada correctamente.')
+  }
+
+  async function handleRemoveSpoonacular() {
+    if (savingSpoonacular) return
+    setSavingSpoonacular(true)
+    setSpoonacularError(null)
+    setSpoonacularInfo(null)
+
+    const { data, error } = await supabase.functions.invoke('manage-ai-key', {
+      body: { action: 'remove', provider: 'spoonacular' },
+    })
+
+    setSavingSpoonacular(false)
+
+    if (error) {
+      setSpoonacularError(await mensajeDeError(error, 'No se pudo quitar la key de Spoonacular.'))
+      return
+    }
+
+    setSpoonacularConfigurada(Boolean(data?.spoonacular_habilitada))
+    setSpoonacularInfo('Clave de Spoonacular quitada.')
+  }
+
+  async function handleSaveTmdb(e: FormEvent) {
+    e.preventDefault()
+    if (!tmdbKey.trim() || savingTmdb) return
+
+    setSavingTmdb(true)
+    setTmdbError(null)
+    setTmdbInfo(null)
+
+    const { data, error } = await supabase.functions.invoke('manage-ai-key', {
+      body: { action: 'save', apiKey: tmdbKey.trim(), provider: 'tmdb' },
+    })
+
+    setSavingTmdb(false)
+
+    if (error) {
+      setTmdbError(await mensajeDeError(error, 'No se pudo validar/guardar la key de TMDB.'))
+      return
+    }
+
+    setTmdbConfigurada(Boolean(data?.tmdb_habilitada))
+    setTmdbKey('')
+    setTmdbInfo('Clave de TMDB guardada correctamente.')
+  }
+
+  async function handleRemoveTmdb() {
+    if (savingTmdb) return
+    setSavingTmdb(true)
+    setTmdbError(null)
+    setTmdbInfo(null)
+
+    const { data, error } = await supabase.functions.invoke('manage-ai-key', {
+      body: { action: 'remove', provider: 'tmdb' },
+    })
+
+    setSavingTmdb(false)
+
+    if (error) {
+      setTmdbError(await mensajeDeError(error, 'No se pudo quitar la key de TMDB.'))
+      return
+    }
+
+    setTmdbConfigurada(Boolean(data?.tmdb_habilitada))
+    setTmdbInfo('Clave de TMDB quitada.')
   }
 
   return (
@@ -264,6 +366,129 @@ export function SettingsScreen() {
 
       {tavilyError && <p className="-mt-3 text-sm text-red-400">{tavilyError}</p>}
       {tavilyInfo && <p className="-mt-3 text-sm text-sage">{tavilyInfo}</p>}
+
+      <div className="border-t border-border-soft pt-2">
+        <h2 className="font-display text-base font-semibold text-ink">Recetas y nutrición</h2>
+        <p className="mt-1 text-sm text-ink-muted">
+          Guardá tu API key de Spoonacular para que Ámbar pueda buscar recetas por ingredientes o
+          por plato, con info nutricional si la pedís. Se cifra antes de guardarse, igual que las
+          demás.
+        </p>
+      </div>
+
+      <div className="rounded-card border border-border-soft bg-surface p-4">
+        <p className="text-sm text-ink">
+          Estado:{' '}
+          {loadingEstado ? (
+            <span className="text-ink-muted">cargando…</span>
+          ) : spoonacularConfigurada ? (
+            <span className="text-sage">configurada</span>
+          ) : (
+            <span className="text-ink-muted">no configurada</span>
+          )}
+        </p>
+      </div>
+
+      <form
+        onSubmit={handleSaveSpoonacular}
+        className="flex flex-col gap-3 rounded-card border border-border-soft bg-surface p-4"
+      >
+        <label htmlFor="spoonacular-key" className="text-sm text-ink-soft">
+          API key de Spoonacular
+        </label>
+        <input
+          id="spoonacular-key"
+          type="password"
+          value={spoonacularKey}
+          onChange={(e) => setSpoonacularKey(e.target.value)}
+          placeholder="Tu API key de Spoonacular"
+          autoComplete="off"
+          className="rounded-input border border-border-soft bg-surface-raised px-3 py-2 text-[16px] leading-5 text-ink outline-none placeholder:text-ink-muted focus:border-amber"
+        />
+        <div className="flex gap-2">
+          <button
+            type="submit"
+            disabled={savingSpoonacular || !spoonacularKey.trim()}
+            className="rounded-pill bg-amber px-4 py-2 text-sm font-medium text-ink-inverse disabled:opacity-50"
+          >
+            {savingSpoonacular ? 'Guardando…' : 'Guardar clave'}
+          </button>
+          {spoonacularConfigurada && (
+            <button
+              type="button"
+              onClick={handleRemoveSpoonacular}
+              disabled={savingSpoonacular}
+              className="rounded-input border border-amber px-4 py-2 text-sm text-amber-soft disabled:opacity-50"
+            >
+              Quitar
+            </button>
+          )}
+        </div>
+      </form>
+
+      {spoonacularError && <p className="-mt-3 text-sm text-red-400">{spoonacularError}</p>}
+      {spoonacularInfo && <p className="-mt-3 text-sm text-sage">{spoonacularInfo}</p>}
+
+      <div className="border-t border-border-soft pt-2">
+        <h2 className="font-display text-base font-semibold text-ink">Películas y series</h2>
+        <p className="mt-1 text-sm text-ink-muted">
+          Guardá tu API key de TMDB (API Key v3) para que Ámbar pueda buscar y recomendarte
+          películas y series. Se cifra antes de guardarse, igual que las demás.
+        </p>
+      </div>
+
+      <div className="rounded-card border border-border-soft bg-surface p-4">
+        <p className="text-sm text-ink">
+          Estado:{' '}
+          {loadingEstado ? (
+            <span className="text-ink-muted">cargando…</span>
+          ) : tmdbConfigurada ? (
+            <span className="text-sage">configurada</span>
+          ) : (
+            <span className="text-ink-muted">no configurada</span>
+          )}
+        </p>
+      </div>
+
+      <form
+        onSubmit={handleSaveTmdb}
+        className="flex flex-col gap-3 rounded-card border border-border-soft bg-surface p-4"
+      >
+        <label htmlFor="tmdb-key" className="text-sm text-ink-soft">
+          API key de TMDB
+        </label>
+        <input
+          id="tmdb-key"
+          type="password"
+          value={tmdbKey}
+          onChange={(e) => setTmdbKey(e.target.value)}
+          placeholder="Tu API Key (v3 auth) de TMDB"
+          autoComplete="off"
+          className="rounded-input border border-border-soft bg-surface-raised px-3 py-2 text-[16px] leading-5 text-ink outline-none placeholder:text-ink-muted focus:border-amber"
+        />
+        <div className="flex gap-2">
+          <button
+            type="submit"
+            disabled={savingTmdb || !tmdbKey.trim()}
+            className="rounded-pill bg-amber px-4 py-2 text-sm font-medium text-ink-inverse disabled:opacity-50"
+          >
+            {savingTmdb ? 'Guardando…' : 'Guardar clave'}
+          </button>
+          {tmdbConfigurada && (
+            <button
+              type="button"
+              onClick={handleRemoveTmdb}
+              disabled={savingTmdb}
+              className="rounded-input border border-amber px-4 py-2 text-sm text-amber-soft disabled:opacity-50"
+            >
+              Quitar
+            </button>
+          )}
+        </div>
+      </form>
+
+      {tmdbError && <p className="-mt-3 text-sm text-red-400">{tmdbError}</p>}
+      {tmdbInfo && <p className="-mt-3 text-sm text-sage">{tmdbInfo}</p>}
     </div>
   )
 }
