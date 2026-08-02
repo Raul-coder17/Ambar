@@ -146,7 +146,7 @@ export function ChatScreen() {
 
       {error && <p className="px-5 pb-2 text-sm text-red-400">{error}</p>}
 
-      <form onSubmit={handleSend} className="flex items-center gap-2.5 px-4 py-3">
+      <form onSubmit={handleSend} className="flex items-center gap-2.5 py-3 pr-20 pl-4">
         <div className="flex flex-1 items-center rounded-pill border border-border-soft bg-surface-raised py-1.5 pr-1.5 pl-4">
           <input
             value={input}
