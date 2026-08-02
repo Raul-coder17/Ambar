@@ -130,6 +130,7 @@ Asistente de voz PWA multi-usuario, con personalidad, memoria persistente y capa
 - **Asimetría de RAG texto↔Live: implementada y desplegada, PENDIENTE de validación en vivo** (2026-07-30). Recencia al abrir (`select` por `created_at`, sin embedding) + marco en lo que devuelve `buscar_en_memoria` + bajar la barrera de esa tool en el prompt. Los tres juntos porque el del marco era **condición** del primero, no un extra: leen la misma tabla y devolver la misma fila con dos marcos distintos hace que el modelo invente que el tema salió dos veces. Se detectó y evitó un bug que la opción tal como estaba enunciada introducía: `abrir` también corre en los re-mints de reconexión, donde "lo último" sería la charla en curso. `deno check` limpio, render y `recuerdosRecientes` verificados ejecutándolos, smoke test con 401 del propio código. Sin migraciones. Ver "Decisiones técnicas — Asimetría de RAG" para el detalle y las limitaciones. **Queda sólo B** (system instruction congelada en Live) de los hallazgos con letra.
 - **Cambio de cámara frontal/trasera: implementado, PENDIENTE de validación en vivo** (2026-07-30). Sólo cliente (`video.ts`, `useLiveSession.ts`, `LiveScreen.tsx`) — nada que desplegar del lado de Supabase. Primera validación en el teléfono de Raúl encontró un bug real (fallaba al cambiar a la trasera aun existiendo) — diagnosticado y corregido el mismo día: `cambiarCamara()` ahora suelta el stream viejo antes de pedir el nuevo (algunos Android no soportan dos streams de cámara a la vez), y el catch que antes era mudo ahora loguea el error real y apaga la cámara del todo si el cambio falla. `tsc -b` y `npm run build` sin errores. Ver "Decisiones técnicas — Cambio de cámara frontal/trasera" y su subsección "Bug: fallaba en Android con cámara trasera real" para el detalle.
 - **Spoonacular (recetas/nutrición) y TMDB (películas/series): implementadas y desplegadas, PENDIENTE de validación en vivo** (2026-08-01). Fase 8 adelantada a pedido de Raúl, mismo patrón BYOK/tool que Tavily. Migración `20260801000000_spoonacular_tmdb.sql` aplicada contra la base remota; `manage-ai-key` generalizada a 4 providers (TMDB valida la key al guardar vía `GET /3/authentication`, gratis; Spoonacular no valida, mismo criterio que Tavily); dos tools nuevas en el registro compartido (`buscar_recetas`, `buscar_peliculas_series`), disponibles en texto y Live sin tocar ninguna de las dos Edge Functions. `buscar_recetas` documenta explícitamente que los ingredientes pueden venir de lo que el modelo ve por cámara en Live. `buscar_peliculas_series` se personaliza con los hechos que ya vivían en la system instruction (género favorito, gustos) sin tocar la infraestructura de memoria. Las tres Edge Functions redesplegadas, `tsc -b` limpio, smoke test con 401 del propio código en las tres. Ver "Decisiones técnicas — Spoonacular y TMDB" para el detalle completo y la lista de validación.
+- **Markdown en los mensajes (Paso 1 de la pizarra visual): implementado, PENDIENTE de validación en vivo** (2026-08-01). Sólo cliente — sin migraciones y sin tocar ninguna Edge Function, así que no hubo nada que desplegar. Dos archivos nuevos (`src/lib/markdown.ts` parser puro, `src/components/Markdown.tsx` componente) wireados en `ChatScreen` e `HistorialScreen`, sólo del lado de Ámbar. `npm run build` limpio y `oxlint` sin warnings nuevos (siguen los 2 preexistentes de fast-refresh en contextos). Parser ejecutado contra 27 casos y componente montado de verdad contra el dev server para medir estilos computados. Commit `1d63266`, pusheado. Ver "Decisiones técnicas — Markdown en los mensajes" para el detalle y la lista de validación. **El Paso 2 (la pizarra en sí) no está arrancado** y espera a que esto se valide.
 - Password de la base de datos generado por Code durante el setup — **no está guardado en ningún archivo del repo**. Se lo pasé a Raúl en el chat de la sesión donde se creó; si se pierde, se resetea desde el dashboard de Supabase (Project Settings → Database).
 - `AI_KEY_ENCRYPTION_SECRET` generado por Code y seteado como secret del proyecto Supabase vía CLI (`supabase secrets set`) — **no está guardado en ningún archivo del repo ni se mostró en el chat**. Es distinto del password de la base de datos: protege las API keys de Gemini/Tavily de todos los usuarios, no solo el acceso de Raúl. Si se pierde no hay forma de recuperarlo (no de resetearlo sin invalidar las keys ya guardadas: un reset requeriría que cada usuario vuelva a guardar su key desde Ajustes).
 
@@ -719,3 +720,73 @@ Dos tools nuevas del backlog de Fase 8, adelantadas a pedido de Raúl porque son
 - **`SettingsScreen.tsx`:** dos secciones nuevas, "Recetas y nutrición" y "Películas y series", clon exacto de la sección de Tavily (mismo estado por sección, mismo `mensajeDeError`, mismo layout) — sin componente compartido: son tres bloques casi idénticos ya desde antes de este cambio (Gemini + Tavily), y una abstracción recién se justificaría si aparece una quinta.
 - **Verificado:** `npx tsc -b` sin errores en el cliente. Migración aplicada contra la base remota (`supabase db push`, confirmado con `--dry-run` después). Las tres Edge Functions (`manage-ai-key`, `ai-chat`, `live`) redesplegadas — bundlean `_shared/tmdb.ts` y `_shared/spoonacular.ts` nuevos sin error de build. Smoke test sin auth: las tres devolvieron 401 (arrancaron bien, sin error de boot). No se pudo correr `deno check` (sin `deno` instalado en esta máquina) ni verificar `SettingsScreen` en el navegador — esa pantalla vive detrás de un login real y no corresponde que Code entre con la cuenta de Raúl.
 - **Pendiente:** validación en vivo completa. Falta que Raúl (1) guarde su key de Spoonacular en Ajustes y le pida a Ámbar una receta por ingredientes, con y sin pedir info nutricional; (2) en modo Live, apunte la cámara a comida/ingredientes reales y confirme que Ámbar los usa para buscar recetas sin que él los liste en voz; (3) guarde su key de TMDB (API Key v3) y confirme que una key inválida se rechaza al guardar con un mensaje claro; (4) le pida una recomendación de película/serie sin dar detalles, después de haberle contado alguna vez un género favorito o algo que le gustó, y confirme que Ámbar lo usa sin volver a preguntar; (5) confirme que ambas tools fallan con un mensaje claro (no en silencio) si la key falta o es inválida.
+
+## Decisiones técnicas — Markdown en los mensajes (Paso 1 de la pizarra visual, 2026-08-01)
+
+Sale de una sesión de solo diagnóstico y diseño sobre una **"pizarra" visual para el modo Live**: que cuando la charla se preste (una receta, una lista, un paso a paso), Ámbar pueda escribir ese contenido y dejarlo fijo en pantalla, en buen formato, mientras la conversación de voz sigue. Del diagnóstico salió que hacían falta **dos pasos separados**, y que el orden importa:
+
+- **Paso 1 (esta sección):** el renderer de markdown, que las dos necesidades comparten. Sólo cliente, sin migración ni deploy, y **validable escribiendo un mensaje de texto normal** — sin abrir una sesión de voz.
+- **Paso 2 (no arrancado):** la pizarra completa — tabla `pizarras`, tool nueva `soloModo: 'live'`, plomería de `session_id` por el puente de tools, carve-out en `INSTRUCCION_ESTILO_VOZ`, componente con navegación entre tarjetas y sección en Historial. Espera a que el Paso 1 se valide. **Sus decisiones de diseño (7, ya confirmadas con Raúl) todavía NO están transcritas acá**: se documentan al abrir esa sesión, junto con la verificación previa de que `gemini-3.1-flash-live-preview` no admite `responseModalities: [AUDIO, TEXT]` simultáneas — la premisa de la que depende todo el diseño del Paso 2.
+
+El orden inverso (construir el renderer adentro de la pizarra) habría significado validarlo sólo por voz, que es el flujo más caro de probar, y después extraerlo.
+
+### No es una mejora cosmética: es un bug que ya estaba en producción
+
+`SYSTEM_INSTRUCTION_BASE` **no prohíbe markdown en modo texto** — sólo pide respuestas "breves y claras". O sea que `gemini-3.1-flash-lite` emite `**negrita**` y listas con `-` con toda normalidad, y hasta este cambio la app las mostraba **crudas**: `{m.text}` pelado en `ChatScreen` y en `HistorialScreen`. Como efecto secundario, los saltos de línea de adentro de un párrafo también se perdían (un `div` sin `whitespace-pre-line` los colapsa a un espacio).
+
+Es distinto del modo Live, donde `INSTRUCCION_ESTILO_VOZ` sí prohíbe el markdown, y a propósito ("no se pueden pronunciar", limitación técnica del canal).
+
+### El subconjunto, y por qué es chico
+
+`## título` · `- viñeta` · `1. numerada` · `**negrita**` · `---` · párrafos.
+
+**Regla de oro: lo que no se reconoce se muestra tal cual.** Un formato no soportado degrada a párrafo, nunca a error — nunca se pierde ni se rompe texto.
+
+Lo que quedó afuera, quedó afuera por algo:
+
+- **Cursiva** (`*x*` / `_x_`): un asterisco suelto aparece en texto normal (multiplicaciones, notas al pie) y el guion bajo en identificadores. El riesgo de mutilar texto legítimo es mayor que lo que aporta.
+- **Links:** superficie de ataque (`javascript:`) sin ningún caso de uso hoy.
+- **Tablas:** no entran en un teléfono en vertical.
+- **Código:** no molesta, pero no se pidió; agregarlo después es una regla más y nada se rompe.
+
+Los cuatro marcadores de bloque exigen **espacio obligatorio** después del marcador (`[ \t]+`, no `[ \t]*`). Es lo único que evita que `-5 grados` se convierta en una viñeta.
+
+### A mano y sin dependencia — dos razones independientes
+
+1. **Bundle.** El comentario de `HomeScreen.tsx` ya justifica un code-split entero porque `@google/genai` pesa ~450 KB en una PWA que se abre desde el celular. `react-markdown` + `remark` son ~100 KB y caerían en el chunk **principal**: los necesita `ChatScreen`, que no es lazy. El parser propio son ~60 líneas.
+2. **Seguridad.** Este texto lo genera un modelo. El renderer emite **elementos React y nunca strings de HTML** (nada de `dangerouslySetInnerHTML`), así que la superficie de inyección es cero **por construcción**, no por sanitización — y con el Paso 2 eso deja de ser teórico, porque ahí el contenido llega como argumento de una function call.
+
+### Dos archivos y no uno
+
+El diagnóstico había propuesto un solo `src/lib/markdown.tsx`. Se partió en `src/lib/markdown.ts` (parser puro, sin JSX) + `src/components/Markdown.tsx` (componente), por dos motivos que se comprobaron, no se supusieron:
+
+- **Un `.tsx` que exporta el componente y las funciones puras dispara `react/only-export-components`.** Con el split, `oxlint` sigue con exactamente los 2 warnings preexistentes (fast-refresh en `AuthContext`/`ConversacionContext`), ninguno nuevo.
+- **Node 24 hace type-stripping de `.ts` pero no de `.tsx`** (JSX). Con el parser en un `.ts` puro se lo puede **ejecutar** contra casos de prueba sin navegador y sin login, que es como se verificó. Con un solo `.tsx` eso no era posible.
+
+De paso queda alineado con el layout que ya existía (`src/lib/` para lógica —`supabase.ts`, `icons.tsx`—, `src/components/` para componentes compartidos —`UpdateBanner.tsx`—). Es el mismo criterio que separa `_shared/memoria.ts` (puro) de `_shared/recuerdos.ts` (I/O) del lado de las Edge Functions.
+
+### Sólo el lado de Ámbar
+
+En `ChatScreen` y en `HistorialScreen` el markdown se renderiza **únicamente** en los mensajes del asistente. Lo que escribió el usuario se muestra tal cual: interpretarle los asteriscos o los guiones sería reescribirle el mensaje. Y hay un segundo motivo propio de este proyecto: desde 4g por ese mismo array pasan **transcripciones de voz** con `role: 'user'`, que son habla, no texto formateado.
+
+- **`LiveScreen` no se tocó.** Su panel es transcripción de audio, donde `INSTRUCCION_ESTILO_VOZ` ya prohíbe el markdown: un asterisco ahí es un artefacto de habla, no formato.
+- **En Historial no hace falta distinguir texto de voz** (la tabla no guarda el origen — limitación conocida desde Fase 7): una transcripción hablada no trae markdown y se renderiza exactamente igual que antes.
+- La rama de escape de `HistorialScreen` (fila que no matchea el separador `\nÁmbar: `) sigue mostrando el `contenido` crudo con `whitespace-pre-line`, sin tocar.
+
+### Hallazgo durante la verificación: el año que se volvía lista
+
+Con el marcador numerado en `\d{1,9}`, una línea como `2026. Fue un buen año` se convertía en una lista numerada **arrancando en 2026**. Se acotó a `\d{1,2}`: sigue andando toda lista de chat realista —incluidas las que continúan en `10.`— y quedan afuera años y precios.
+
+Se conserva a propósito el `start` de la lista: si el modelo enumera "3. 4. 5." es porque viene de algo anterior, y renumerar desde 1 sería contradecir lo que dijo arriba.
+
+### Verificación
+
+- **Ejecutado, no leído:** el parser se corrió contra **27 casos**, todos en verde. Incluye el caso más importante (texto sin markdown sale idéntico, que es el 90% del tráfico) y los falsos positivos conocidos: `-5 grados` no es viñeta, `#hashtag` no es título, `5**2` no es negrita, un `**` sin pareja queda literal y no se come el párrafo.
+- **Componente montado de verdad**, no una réplica estática: se importó `Markdown.tsx` contra el dev server de Vite (que lo transforma en caliente) y se lo renderizó dentro de las burbujas reales de Chat e Historial, con el CSS real. Medido con estilos computados: viñetas `disc`, numeradas `decimal` respetando `start`, negrita 600, título en Fraunces (`font-display`), color heredado del contenedor, separador con `border-soft`, y **sin scroll horizontal a 375 px**. Cero `**` o `#` sin renderizar en el texto resultante.
+- `npm run build` (`tsc -b` + vite) sin errores; `oxlint` sin warnings nuevos. Se confirmó además que Tailwind emitió las utilidades nuevas en el CSS del build (`list-disc`, `list-decimal`, `whitespace-pre-line`, `pl-5`, `space-y-1/2`, `font-display`).
+- **No se pudo sacar screenshot** (el panel del navegador no estaba disponible en esa sesión), por eso la verificación visual fue por estilos computados — la misma técnica que ya se usó para los dos bugs de layout de Fase 7.
+- Sin migraciones y sin deploys: es enteramente cliente. Commit `1d63266`, pusheado a `main`.
+
+### Pendiente de validación en vivo
+
+Falta que Raúl le pida algo que naturalmente dé una lista ("dame 3 ideas para cenar", "cómo hago un omelette paso a paso") y confirme que: (1) las viñetas y numeradas se ven como lista, no como guiones sueltos; (2) `**negrita**` aparece en negrita, sin los asteriscos; (3) **su propio mensaje se ve tal cual lo escribió**, aunque meta asteriscos o guiones; (4) en Historial pasa lo mismo con charlas viejas de texto; y (5) una transcripción de voz guardada se sigue viendo igual que antes.
