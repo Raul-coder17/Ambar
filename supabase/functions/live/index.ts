@@ -32,6 +32,11 @@
 // pedir un token nuevo a mitad de una reconexión — ver el bloque `if
 // (body.handle...)` más abajo.
 //
+// La pizarra visual (Paso 2) tampoco agregó acciones: `mostrar_en_pantalla` es
+// una tool más del registro compartido y viaja por la acción `tool` que ya
+// existía. Lo único que cambió es que esa acción ahora pasa el `session_id` al
+// `ToolContext` — ver el bloque de esa acción más abajo.
+//
 // 4f agregó la cámara (sin cambios acá, todo del lado del cliente). 4g agregó
 // `forzar` en `abrir` (ver el bloque `reclamar_sesion_live` más abajo): deja
 // que el cliente cierre la sesión de OTRO dispositivo cuando el usuario lo
@@ -432,6 +437,13 @@ Deno.serve(async (req) => {
   // autenticado, igual que en `ai-chat`, así que no hay nada que una
   // validación de sesión agregue en seguridad — sólo sería higiene extra, y
   // el tope de tool calls (del lado del cliente) ya cubre eso.
+  //
+  // Desde la pizarra visual el `session_id` SÍ se lee, pero eso no cambia lo
+  // anterior: entra al `ToolContext` como etiqueta de agrupación de las
+  // tarjetas de una misma llamada (ver `mostrar_en_pantalla`), no como
+  // credencial. Lo peor que puede hacer un session_id inventado es agrupar mal
+  // las pizarras DEL PROPIO usuario; la RLS sigue siendo lo único que decide de
+  // quién son. Por eso tampoco se valida acá.
   if (body.action === 'tool') {
     const name = typeof body.name === 'string' ? body.name : ''
     if (!name) {
@@ -445,7 +457,12 @@ Deno.serve(async (req) => {
     }
 
     try {
-      const result = await tool.handler(args, { supabase, userId: user.id, encryptionSecret })
+      const result = await tool.handler(args, {
+        supabase,
+        userId: user.id,
+        encryptionSecret,
+        sessionId: typeof body.session_id === 'string' && body.session_id ? body.session_id : undefined,
+      })
       return jsonResponse({ result })
     } catch (err) {
       console.error(`[live] tool ${name} falló:`, err instanceof Error ? err.message : err)

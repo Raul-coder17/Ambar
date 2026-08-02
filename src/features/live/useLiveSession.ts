@@ -42,6 +42,11 @@
 // el turno donde el modelo llamó a `olvidar_hecho` es la excepción: ése no se
 // guarda (ver `olvidoEnTurnoRef`).
 //
+// La pizarra visual (Paso 2a) tocó sólo el puente de tools: cada tool call
+// ahora viaja con el `session_id` de la sesión, y `mostrar_en_pantalla` queda
+// eximida del tope de tool calls (ver TOOLS_SIN_TOPE). El render de la tarjeta
+// en sí es del Paso 2b.
+//
 // Después de 4f se agregó `alternarCamaraFacing`: intercambia frontal/trasera
 // sin volver a pedir permiso (ver `cambiarCamara` en `video.ts`). Si el
 // cambio falla, la cámara queda apagada del todo en vez de seguir en la que
@@ -80,17 +85,35 @@ const REINTENTOS_RECONEXION_MS = [1_000, 2_000, 4_000]
 
 const esperar = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
 
+// Duplican a propósito las constantes homónimas de
+// `supabase/functions/_shared/tools.ts`: ese módulo es código de Deno (imports
+// por URL) y no se puede importar desde el bundle de Vite. Si allá cambia el
+// nombre de una tool, hay que cambiarlo acá — por eso están en constantes y no
+// sueltas en el medio de `alMensaje`.
+//
+// Son las dos tools que el cliente necesita RECONOCER, no sólo despachar:
+// `olvidar_hecho` para no persistir ese turno (P1), `mostrar_en_pantalla` para
+// eximirla del tope de acá abajo (y, en el Paso 2b, para pintar la tarjeta
+// apenas ve la call).
+const OLVIDAR_HECHO = 'olvidar_hecho'
+const MOSTRAR_EN_PANTALLA = 'mostrar_en_pantalla'
+
 // Tope de higiene, no de seguridad: nada del lado del servidor depende de
 // esto (la RLS ya escopea cada tool al usuario dueño del JWT). Sólo evita que
 // una sesión de voz larga entre en un loop de tool calls sin fin.
 const TOPE_TOOL_CALLS = 30
 
-// Duplica a propósito la constante `OLVIDAR_HECHO` de
-// `supabase/functions/_shared/tools.ts`: ese módulo es código de Deno (imports
-// por URL) y no se puede importar desde el bundle de Vite. Si allá cambia el
-// nombre de la tool, hay que cambiarlo acá — por eso está en una constante y no
-// suelto en el medio de `alMensaje`.
-const OLVIDAR_HECHO = 'olvidar_hecho'
+// Tools eximidas del tope de arriba.
+//
+// `mostrar_en_pantalla` no es una llamada a un servicio externo ni una consulta
+// que pueda entrar en loop: es la forma en que Ámbar ESCRIBE, el equivalente
+// hablado de mandar un mensaje. Una charla larga y productiva —una receta,
+// después una lista de compras, después un instructivo— es exactamente el caso
+// donde más tarjetas hay, y sería el peor momento para que la pizarra dejara de
+// funcionar en silencio mientras la voz sigue andando. El riesgo que el tope
+// venía a cubrir tampoco aplica: cada tarjeta repetida choca contra
+// `pizarras_dedupe_idx` y no acumula nada.
+const TOOLS_SIN_TOPE = new Set<string>([MOSTRAR_EN_PANTALLA])
 
 interface RespuestaAbrir {
   token: string
@@ -302,15 +325,32 @@ export function useLiveSession(opciones?: OpcionesLiveSession) {
     const respuestas = await Promise.all(
       llamadas.map(async (call) => {
         const nombre = call.name ?? ''
-        toolCallsRef.current += 1
 
-        if (toolCallsRef.current > TOPE_TOOL_CALLS) {
-          return { id: call.id, name: nombre, response: { error: 'Se alcanzó el límite de herramientas de esta sesión de voz.' } }
+        // Las eximidas no suman al contador NI lo consultan: si sumaran sin
+        // consultarlo, una sesión con muchas tarjetas gastaría el presupuesto
+        // de las tools que sí importa frenar.
+        if (!TOOLS_SIN_TOPE.has(nombre)) {
+          toolCallsRef.current += 1
+          if (toolCallsRef.current > TOPE_TOOL_CALLS) {
+            return { id: call.id, name: nombre, response: { error: 'Se alcanzó el límite de herramientas de esta sesión de voz.' } }
+          }
         }
 
         const { data, error } = await supabase.functions.invoke<{ result?: Record<string, unknown>; error?: string }>(
           'live',
-          { body: { action: 'tool', name: nombre, args: call.args ?? {} } },
+          {
+            // El `session_id` viaja en TODA tool call, no sólo en las que hoy
+            // lo usan: es contexto del canal (como el JWT), y el registro de
+            // tools no sabe —ni tiene por qué saber— cuáles lo necesitan. Hoy
+            // lo lee `mostrar_en_pantalla` para agrupar las tarjetas de esta
+            // llamada; ver `ToolContext` en _shared/tools.ts.
+            body: {
+              action: 'tool',
+              name: nombre,
+              args: call.args ?? {},
+              ...(sessionIdRef.current ? { session_id: sessionIdRef.current } : {}),
+            },
+          },
         )
 
         if (error || !data) {

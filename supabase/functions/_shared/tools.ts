@@ -25,6 +25,7 @@ import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { decryptApiKey } from './crypto.ts'
 import { generarEmbedding } from './embeddings.ts'
 import { CATEGORIA_ESTILO, clave, esHechoDeEstilo, MAX_LARGO_HECHO, normalizarArgsHecho } from './memoria.ts'
+import { MAX_LARGO_PIZARRA, normalizarArgsPizarra } from './pizarra.ts'
 import { buscarRecuerdos } from './recuerdos.ts'
 import { buscarRecetas } from './spoonacular.ts'
 import { buscarEnInternet } from './tavily.ts'
@@ -42,6 +43,19 @@ export interface ToolContext {
   // Necesario para descifrar la key de Tavily guardada por el usuario dentro
   // del handler de `buscar_en_internet` (ver más abajo).
   encryptionSecret: string
+  /**
+   * Sólo en modo Live: el `session_id` de la sesión de voz en curso, que el
+   * cliente manda junto con cada tool call. Lo usa `mostrar_en_pantalla` para
+   * agrupar las tarjetas de una misma llamada y para escopear su dedupe.
+   *
+   * Opcional porque en modo texto no existe (`ai-chat` no lo pasa) y ninguna
+   * tool disponible en ese modo lo necesita. Se inyecta por el contexto, como
+   * `encryptionSecret`, en vez de ser un parámetro más de la declaración: es
+   * infraestructura del canal, no algo que el modelo deba conocer ni poder
+   * inventar. Que viniera del modelo sería además un agujero — podría escribir
+   * tarjetas dentro de otra sesión.
+   */
+  sessionId?: string
 }
 
 export type ToolHandler = (args: Record<string, unknown>, ctx: ToolContext) => Promise<unknown>
@@ -59,6 +73,19 @@ export type ModoConversacion = 'texto' | 'live'
  * por URL) desde el bundle de Vite.
  */
 export const OLVIDAR_HECHO = 'olvidar_hecho'
+
+/**
+ * El nombre de `mostrar_en_pantalla`, exportado por el mismo motivo que
+ * `OLVIDAR_HECHO`: hay quien necesita reconocer la call SIN ejecutarla.
+ *
+ * El cliente (`useLiveSession.ts`) la reconoce por dos cosas distintas —
+ * eximirla del tope de tool calls, y (en el Paso 2b) leer el `contenido` del
+ * argumento para pintar la tarjeta al instante, sin esperar el round-trip a la
+ * Edge Function. Igual que con OLVIDAR_HECHO, allá el literal está duplicado a
+ * mano: `_shared/` es código de Deno con imports por URL y no se puede importar
+ * desde el bundle de Vite.
+ */
+export const MOSTRAR_EN_PANTALLA = 'mostrar_en_pantalla'
 
 export interface Tool {
   declaration: ToolDeclaration
@@ -447,6 +474,127 @@ const buscarEnMemoriaTool: Tool = {
   },
 }
 
+// --- mostrar_en_pantalla (pizarra visual, Paso 2, solo Live) ----------------
+//
+// POR QUÉ ESTA TOOL EXISTE, Y POR QUÉ NO PODÍA SER OTRA COSA
+//
+// La pizarra necesita que Ámbar escriba en pantalla un contenido DISTINTO de lo
+// que está diciendo en voz alta: una receta formateada mientras la charla
+// sigue. En modo texto eso no haría falta (la respuesta ya se lee), pero en
+// Live no hay canal de texto disponible: `gemini-3.1-flash-live-preview` es un
+// modelo de audio nativo y la doc oficial de la Live API dice que ésos sólo
+// admiten la modalidad de respuesta `AUDIO` — para texto hay que usar la
+// transcripción de la salida, que es lo que YA usamos y no sirve para esto: es
+// la transcripción literal de lo hablado, con el estilo de voz encima, no una
+// tarjeta curada. Una function call es el único canal por el que puede viajar
+// contenido estructurado del modelo a la pantalla.
+//
+// Y NO ES PERSISTENCIA EN EL CAMINO CRÍTICO. La tarjeta la pinta el cliente
+// apenas VE la call, con el `contenido` del argumento, sin esperar este handler
+// (mismo patrón que `olvidar_hecho`, que se marca al ver la call y no al
+// responderla). Este handler sólo la GUARDA, en segundo plano respecto de lo que
+// el usuario ve. Por eso las notas de acá dicen "ya está en pantalla" incluso en
+// las ramas donde el insert falló: es lo que efectivamente pasó, y mandar al
+// modelo a disculparse por una tarjeta que el usuario está mirando sería peor
+// que perder la fila.
+const mostrarEnPantallaTool: Tool = {
+  declaration: {
+    name: MOSTRAR_EN_PANTALLA,
+    description:
+      'Escribe contenido en la pantalla del usuario, como una tarjeta que queda fija mientras la conversación de voz sigue. ' +
+      'Usala cuando lo que tenés para dar se sigue mejor con los ojos que con el oído y el usuario va a querer volver a mirarlo: ' +
+      'una receta con sus ingredientes y pasos, una lista de opciones, un instructivo paso a paso, datos que hay que comparar. ' +
+      'NO la uses para charla normal, para una respuesta corta, ni para repetir por escrito lo que acabás de decir en voz alta. ' +
+      'El contenido admite formato: "## título de sección", "- viñeta", "1. numerada", "**negrita**" y "---" para separar. ' +
+      'Nada de eso se pronuncia — es sólo para la pantalla, y ahí SÍ se espera que lo uses aunque en voz no puedas. ' +
+      `Máximo ${MAX_LARGO_PIZARRA} caracteres de contenido: si no entra, mostrá lo esencial y ofrecé el resto hablando. ` +
+      'Después de llamarla, seguí la conversación con naturalidad: no leas la tarjeta en voz alta ni la describas.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        titulo: {
+          type: 'STRING',
+          description: 'Opcional. Encabezado corto de la tarjeta, de pocas palabras ("Tortilla de papas", "Opciones para el finde").',
+        },
+        contenido: {
+          type: 'STRING',
+          description:
+            `El contenido a mostrar, en español y con el formato de arriba. Máximo ${MAX_LARGO_PIZARRA} caracteres. ` +
+            'Tiene que entenderse solo, sin lo que dijiste en voz: el usuario puede volver a mirarlo más tarde.',
+        },
+      },
+      required: ['contenido'],
+    },
+  },
+  soloModo: 'live',
+
+  handler: async (args, ctx) => {
+    const propuesta = normalizarArgsPizarra(args)
+    if (!propuesta) {
+      return {
+        mostrado: false,
+        nota: 'No pude mostrar nada en pantalla: el contenido vino vacío. Seguí la conversación con normalidad.',
+      }
+    }
+
+    // Se le dice al modelo que se cortó para que pueda ofrecer el resto
+    // hablando o mandar una segunda tarjeta. Sin esto creería que la tarjeta
+    // dice todo lo que él escribió, y la conversación seguiría dando por
+    // sabido algo que el usuario no tiene delante.
+    const notaTruncado = propuesta.truncado
+      ? ` Ojo: era más largo que el máximo y se cortó el final, así que en pantalla está incompleto. Si lo que quedó afuera importa, decilo en voz o mandá una segunda tarjeta con el resto.`
+      : ''
+
+    // La prohibición de leerla en voz alta va acá ADEMÁS de en la system
+    // instruction (INSTRUCCION_ESTILO_VOZ) a propósito, y no es redundancia
+    // ociosa: es el mismo caso de `NOTA_APLICAR_ESTILO`. La system instruction
+    // del modo Live queda congelada dentro del token efímero al abrir la sesión
+    // (hallazgo B), mientras que esta nota llega en el turno exacto en que el
+    // modelo acaba de escribir la tarjeta — que es justo el turno donde la
+    // tentación de recitarla es máxima.
+    const NO_LEER = ' NO leas la tarjeta en voz alta ni la describas: el usuario ya la está viendo. Comentá algo breve y seguí.'
+
+    // El session_id no lo manda el modelo, viene del contexto (ver ToolContext).
+    // El fallback a '' sólo se alcanzaría por un bug del cliente: cuando llega
+    // un toolCall, `sessionIdRef` ya está seteado desde antes de conectar el
+    // WebSocket. Se loguea porque si pasara, el dedupe quedaría agrupando
+    // tarjetas de sesiones distintas bajo la misma clave vacía.
+    if (!ctx.sessionId) {
+      console.error('[mostrar_en_pantalla] llegó sin session_id: el dedupe queda degradado.')
+    }
+    const sessionId = ctx.sessionId ?? ''
+
+    const { error } = await ctx.supabase.from('pizarras').insert({
+      user_id: ctx.userId,
+      session_id: sessionId,
+      titulo: propuesta.titulo,
+      contenido: propuesta.contenido,
+    })
+
+    if (error) {
+      // 23505 = choque contra pizarras_dedupe_idx. NO es un error: es session
+      // resumption reemitiendo una call que ya se había ejecutado antes de un
+      // corte (ver el comentario del índice en la migración). La tarjeta ya
+      // está guardada Y ya está en pantalla, que es lo que importaba.
+      if (error.code === '23505') {
+        return { mostrado: true, nota: `Esa tarjeta ya estaba en pantalla.${NO_LEER}` }
+      }
+      // El insert falló de verdad. La tarjeta igual está en pantalla (la pintó
+      // el cliente); lo que se pierde es que quede en Historial. No es algo que
+      // el usuario haya pedido explícitamente ni de lo que haya que avisarle a
+      // mitad de una charla hablada: se loguea y la conversación sigue.
+      console.error('[mostrar_en_pantalla] falló el insert:', error.message)
+      return {
+        mostrado: true,
+        guardado: false,
+        nota: `Está en pantalla, pero no se pudo guardar para el historial. No se lo menciones al usuario.${notaTruncado}${NO_LEER}`,
+      }
+    }
+
+    return { mostrado: true, nota: `Listo, ya está en pantalla.${notaTruncado}${NO_LEER}` }
+  },
+}
+
 // --- buscar_en_internet (Fase 3) --------------------------------------------
 
 const buscarEnInternetTool: Tool = {
@@ -666,6 +814,7 @@ export const TOOLS: Tool[] = [
   recordarHecho,
   olvidarHecho,
   buscarEnMemoriaTool,
+  mostrarEnPantallaTool,
   buscarEnInternetTool,
   buscarRecetasTool,
   buscarPeliculasSeriesTool,
