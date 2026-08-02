@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../auth/AuthContext'
+import { Markdown } from '../../components/Markdown'
 
 const LIMITE = 50
 const SEPARADOR = '\nÁmbar: '
@@ -93,8 +94,13 @@ export function HistorialScreen() {
                       </div>
                     </div>
                     <div className="flex justify-start">
+                      {/* Mismo criterio que ChatScreen: markdown sólo del
+                          lado de Ámbar. Esta tabla mezcla texto y voz sin
+                          columna que los distinga (limitación conocida), pero
+                          no hace falta: una transcripción hablada no trae
+                          markdown y se renderiza igual que antes. */}
                       <div className="max-w-[85%] rounded-bubble rounded-bl-[5px] bg-surface-raised px-3 py-1.5 text-sm text-ink">
-                        {intercambio.ambar}
+                        <Markdown texto={intercambio.ambar} />
                       </div>
                     </div>
                   </div>

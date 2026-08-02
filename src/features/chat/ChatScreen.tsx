@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../auth/AuthContext'
 import { useConversacion, type ChatMessage } from './ConversacionContext'
+import { Markdown } from '../../components/Markdown'
 import { IconSend } from '../../lib/icons'
 
 interface AiChatResponse {
@@ -130,7 +131,12 @@ export function ChatScreen() {
                   : 'rounded-bl-[5px] bg-surface-raised text-ink'
               }`}
             >
-              {m.text}
+              {/* Sólo el lado de Ámbar se renderiza como markdown. Lo del
+                  usuario se muestra tal cual escribió: interpretarle los
+                  asteriscos o los guiones sería reescribirle el mensaje, y
+                  desde 4g por acá también pasan transcripciones de voz, que
+                  son habla y no texto formateado. */}
+              {m.role === 'assistant' ? <Markdown texto={m.text} /> : m.text}
             </div>
           </div>
         ))}
