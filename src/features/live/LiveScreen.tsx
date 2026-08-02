@@ -23,17 +23,63 @@
 //     historial compartido y cerramos esta pantalla — el usuario aparece en
 //     ChatScreen con la transcripción de lo que ya se habló.
 //
+// La pizarra (Paso 2b) reorganizó el layout, que es la opción A del diseño: el
+// bloque central pasó a ser de las tarjetas, y el círculo de estado —que hasta
+// acá era el protagonista— se redujo al header. El razonamiento es el mismo que
+// justificaba el círculo grande, aplicado al caso nuevo: en una pantalla que se
+// mira de reojo mientras se habla, lo que ocupa el centro tiene que ser lo que
+// hay para leer. Cuando NO hay tarjetas, el centro vuelve a ser del estado.
+//
 // El aviso de la pantalla no es decorativo. En iOS, bloquear la pantalla
 // suspende el AudioContext y la sesión se queda muda; el Wake Lock lo evita
 // mientras el navegador lo permita, pero no está en todos lados y el sistema
 // puede soltarlo igual. Decírselo al usuario es la única garantía real.
 
 import { useCallback } from 'react'
-import { useLiveSession } from './useLiveSession'
+import { useLiveSession, type EstadoLive } from './useLiveSession'
+import { PizarraPanel } from './PizarraPanel'
 import { useConversacion } from '../chat/ConversacionContext'
 
+/**
+ * El círculo de estado, ya reducido al header.
+ *
+ * Conserva las mismas variantes que tenía en grande, incluida la respiración
+ * cuando Ámbar habla: es el mismo motivo de marca que la brasa del header y el
+ * FAB, no una coincidencia. Lo único que cambió es la escala.
+ */
+function IndicadorEstado({
+  estado,
+  hablando,
+  silenciado,
+}: {
+  estado: EstadoLive
+  hablando: boolean
+  silenciado: boolean
+}) {
+  const clases =
+    estado === 'activa'
+      ? hablando
+        ? 'animate-[ambar-breathe_3.2s_ease-in-out_infinite] bg-amber/30 ring-2 ring-amber'
+        : silenciado
+          ? 'bg-surface-raised ring-2 ring-border-soft'
+          : 'bg-amber/10 ring-2 ring-amber/50'
+      : estado === 'conectando' || estado === 'reconectando'
+        ? 'animate-pulse bg-surface-raised ring-2 ring-border-soft'
+        : estado === 'conflicto'
+          ? 'bg-amber/10 ring-2 ring-amber/40'
+          : 'bg-surface ring-2 ring-border-soft'
+
+  return (
+    <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full transition-all ${clases}`}>
+      <span className="text-base">
+        {estado === 'conflicto' ? '⚠️' : silenciado && estado === 'activa' ? '🔇' : '🎙️'}
+      </span>
+    </div>
+  )
+}
+
 export function LiveScreen({ onCerrar }: { onCerrar: (irAChat?: boolean) => void }) {
-  const { mostrarBannerFallback } = useConversacion()
+  const { mostrarBannerFallback, pizarras } = useConversacion()
 
   const alFallback = useCallback(
     (mensaje: string) => {
@@ -83,11 +129,15 @@ export function LiveScreen({ onCerrar }: { onCerrar: (irAChat?: boolean) => void
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-base text-ink">
-      <header className="flex items-center justify-between border-b border-border-soft px-4 py-3">
-        <h1 className="font-display text-sm font-medium text-amber-soft">Modo voz</h1>
+      <header className="flex flex-shrink-0 items-center gap-3 border-b border-border-soft px-4 py-3">
+        <IndicadorEstado estado={estado} hablando={hablando} silenciado={silenciado} />
+        <div className="min-w-0">
+          <h1 className="font-display text-sm font-medium text-amber-soft">Modo voz</h1>
+          <p className="truncate text-xs text-ink-muted">{leyenda}</p>
+        </div>
         <button
           onClick={handleSalir}
-          className="rounded-input border border-border-soft px-3 py-1.5 text-xs text-ink-soft hover:border-amber"
+          className="ml-auto flex-shrink-0 rounded-input border border-border-soft px-3 py-1.5 text-xs text-ink-soft hover:border-amber"
         >
           Salir
         </button>
@@ -96,37 +146,30 @@ export function LiveScreen({ onCerrar }: { onCerrar: (irAChat?: boolean) => void
       {/* Indicador de cámara: no alcanza con el ícono del sistema operativo,
           que se puede pasar por alto. Esta franja es imposible de ignorar. */}
       {camaraActiva && (
-        <div className="flex items-center justify-center gap-2 border-b border-amber/30 bg-amber/10 px-4 py-1.5 text-xs text-amber-soft">
+        <div className="flex flex-shrink-0 items-center justify-center gap-2 border-b border-amber/30 bg-amber/10 px-4 py-1.5 text-xs text-amber-soft">
           <span className="h-2 w-2 animate-pulse rounded-full bg-amber" />
           {camaraFacing === 'environment' ? 'Cámara trasera activa' : 'Cámara frontal activa'} — Ámbar puede verte
         </div>
       )}
 
-      <div className="flex flex-1 flex-col items-center justify-center gap-6 px-6">
-        {/* El círculo es el único indicador de estado: en una pantalla que se
-            mira de reojo mientras se habla, un texto chico no se lee.
-            Cuando Ámbar habla, respira con la misma animación que la brasa
-            del header/FAB — mismo motivo de marca, no una coincidencia. */}
-        <div
-          className={`flex h-32 w-32 items-center justify-center rounded-full transition-all ${
-            estado === 'activa'
-              ? hablando
-                ? 'animate-[ambar-breathe_3.2s_ease-in-out_infinite] bg-amber/30 ring-4 ring-amber'
-                : silenciado
-                  ? 'bg-surface-raised ring-4 ring-border-soft'
-                  : 'bg-amber/10 ring-4 ring-amber/50'
-              : estado === 'conectando' || estado === 'reconectando'
-                ? 'animate-pulse bg-surface-raised ring-4 ring-border-soft'
-                : estado === 'conflicto'
-                  ? 'bg-amber/10 ring-4 ring-amber/40'
-                  : 'bg-surface ring-4 ring-border-soft'
-          }`}
-        >
-          <span className="text-3xl">{estado === 'conflicto' ? '⚠️' : silenciado && estado === 'activa' ? '🔇' : '🎙️'}</span>
-        </div>
+      {/* El bloque central. Con tarjetas es de la pizarra; sin ellas vuelve a
+          ser del estado de la sesión, que es lo único que hay para mirar. */}
+      <div className="flex min-h-0 flex-1 flex-col px-4 py-3">
+        {pizarras.length > 0 ? (
+          <PizarraPanel pizarras={pizarras} />
+        ) : (
+          <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
+            <p className="text-sm text-ink-muted">{leyenda}</p>
+            {estado === 'activa' && (
+              <p className="max-w-xs text-xs text-ink-muted">
+                Si Ámbar escribe algo para que mires —una receta, una lista— te lo va a dejar acá.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
 
-        <p className="text-sm text-ink-muted">{leyenda}</p>
-
+      <div className="flex flex-shrink-0 flex-col items-center gap-3 px-4 pb-3">
         {error && <p className="max-w-xs text-center text-sm text-red-400">{error}</p>}
 
         {estado === 'conflicto' && esperaSegundos !== null && (
@@ -141,7 +184,10 @@ export function LiveScreen({ onCerrar }: { onCerrar: (irAChat?: boolean) => void
           </p>
         )}
 
-        <div className="flex gap-3">
+        {/* `flex-wrap`: con la cámara prendida son cuatro botones, y desde que
+            el bloque central se lo lleva el espacio ya no hay lugar para
+            ponerlos todos en una fila en un teléfono angosto. */}
+        <div className="flex flex-wrap justify-center gap-2">
           {estado === 'conflicto' ? (
             <button
               onClick={() => void abrir(true)}
@@ -161,14 +207,14 @@ export function LiveScreen({ onCerrar }: { onCerrar: (irAChat?: boolean) => void
               <button
                 onClick={alternarSilencio}
                 disabled={estado !== 'activa'}
-                className="rounded-pill border border-border-soft px-6 py-3 text-sm text-ink-soft hover:border-amber disabled:opacity-50"
+                className="rounded-pill border border-border-soft px-5 py-2.5 text-sm text-ink-soft hover:border-amber disabled:opacity-50"
               >
                 {silenciado ? 'Activar micrófono' : 'Silenciar'}
               </button>
               <button
                 onClick={() => void alternarCamara()}
                 disabled={estado !== 'activa'}
-                className="rounded-pill border border-border-soft px-6 py-3 text-sm text-ink-soft hover:border-amber disabled:opacity-50"
+                className="rounded-pill border border-border-soft px-5 py-2.5 text-sm text-ink-soft hover:border-amber disabled:opacity-50"
               >
                 {camaraActiva ? 'Apagar cámara' : 'Prender cámara'}
               </button>
@@ -176,14 +222,14 @@ export function LiveScreen({ onCerrar }: { onCerrar: (irAChat?: boolean) => void
                 <button
                   onClick={() => void alternarCamaraFacing()}
                   disabled={estado !== 'activa'}
-                  className="rounded-pill border border-border-soft px-6 py-3 text-sm text-ink-soft hover:border-amber disabled:opacity-50"
+                  className="rounded-pill border border-border-soft px-5 py-2.5 text-sm text-ink-soft hover:border-amber disabled:opacity-50"
                 >
                   Cambiar cámara
                 </button>
               )}
               <button
                 onClick={cerrar}
-                className="rounded-pill bg-red-500/90 px-6 py-3 text-sm font-medium text-ink-inverse"
+                className="rounded-pill bg-red-500/90 px-5 py-2.5 text-sm font-medium text-ink-inverse"
               >
                 Cortar
               </button>
@@ -193,9 +239,12 @@ export function LiveScreen({ onCerrar }: { onCerrar: (irAChat?: boolean) => void
       </div>
 
       {/* Transcripción: además de ser útil para seguir la charla, es la prueba
-          visible de que las transcripciones están llegando — que es lo que va a
-          alimentar el fallback a texto (4g) y la memoria. */}
-      <div className="max-h-56 space-y-2 overflow-y-auto border-t border-border-soft px-4 py-3">
+          visible de que las transcripciones están llegando — que es lo que
+          alimenta el fallback a texto (4g) y la memoria.
+
+          Se achicó al llegar la pizarra: con tarjetas en pantalla, esto pasó a
+          ser lo secundario. `max-h-40` en vez de `max-h-56`. */}
+      <div className="max-h-40 flex-shrink-0 space-y-2 overflow-y-auto border-t border-border-soft px-4 py-3">
         {turnos.length === 0 ? (
           <p className="text-center text-xs text-ink-muted">La transcripción va a aparecer acá.</p>
         ) : (

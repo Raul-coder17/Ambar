@@ -161,7 +161,7 @@ interface OpcionesLiveSession {
 }
 
 export function useLiveSession(opciones?: OpcionesLiveSession) {
-  const { agregarMensaje } = useConversacion()
+  const { agregarMensaje, agregarPizarra } = useConversacion()
 
   const [estado, setEstado] = useState<EstadoLive>('inactiva')
   const [error, setError] = useState<string | null>(null)
@@ -401,9 +401,37 @@ export function useLiveSession(opciones?: OpcionesLiveSession) {
       // texto lo traería de vuelta después. Es el mismo agujero que P1 tapa en
       // `ai-chat`, y hasta este cambio Live estaba a salvo sólo por accidente:
       // no escribía en memoria_vectorial en absoluto.
-      if ((m.toolCall.functionCalls ?? []).some((c) => c.name === OLVIDAR_HECHO)) {
-        olvidoEnTurnoRef.current = true
+      //
+      // La pizarra (Paso 2b) se pinta en el MISMO lugar y por el mismo motivo,
+      // pero con un efecto más visible: la tarjeta aparece en pantalla apenas
+      // llega la call, sin esperar el POST a la Edge Function que la persiste.
+      // Ese POST tarda lo que tarde; la conversación hablada, no. Y el modelo
+      // ya está diciendo "te lo dejé en pantalla" mientras tanto, así que la
+      // tarjeta tiene que estar ahí antes de que termine la frase.
+      //
+      // Los args se leen a mano acá y no se reusa `normalizarArgsPizarra`: ese
+      // módulo es código de Deno y no se puede importar desde el bundle de Vite
+      // (mismo motivo por el que los nombres de las tools están duplicados).
+      // Lo único que hace falta acá es lo mínimo para pintar — el saneado que
+      // importa para lo que se GUARDA sigue viviendo del lado del servidor.
+      for (const call of m.toolCall.functionCalls ?? []) {
+        if (call.name === OLVIDAR_HECHO) {
+          olvidoEnTurnoRef.current = true
+          continue
+        }
+        if (call.name !== MOSTRAR_EN_PANTALLA) continue
+
+        const args = call.args ?? {}
+        const contenido = typeof args.contenido === 'string' ? args.contenido.trim() : ''
+        // Sin contenido no hay nada que pintar. El handler del servidor
+        // rechaza este mismo caso con su propia nota; acá alcanza con no
+        // agregar una tarjeta vacía al carrusel.
+        if (!contenido) continue
+
+        const titulo = typeof args.titulo === 'string' ? args.titulo.trim() : ''
+        agregarPizarra({ titulo: titulo || null, contenido })
       }
+
       void responderToolCall(m.toolCall)
     }
 
@@ -474,7 +502,7 @@ export function useLiveSession(opciones?: OpcionesLiveSession) {
         void guardarTurnoEnMemoria(usuarioTexto, ambarTexto)
       }
     }
-  }, [responderToolCall, agregarMensaje, guardarTurnoEnMemoria])
+  }, [responderToolCall, agregarMensaje, agregarPizarra, guardarTurnoEnMemoria])
 
   // --- conectar / reconectar (4e) ------------------------------------------
   //
