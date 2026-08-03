@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../auth/AuthContext'
+import { getPushStatus, subscribeToPush, unsubscribeFromPush, type PushStatus } from '../../lib/push'
 
 // supabase-js descarta el body de una respuesta no-2xx en error.message (deja
 // solo "non-2xx status code"). El mensaje real, ya traducido al español, vive
@@ -41,6 +42,29 @@ export function SettingsScreen() {
   const [spoonacularInfo, setSpoonacularInfo] = useState<string | null>(null)
   const [tmdbError, setTmdbError] = useState<string | null>(null)
   const [tmdbInfo, setTmdbInfo] = useState<string | null>(null)
+  const [pushStatus, setPushStatus] = useState<PushStatus | null>(null)
+  const [pushWorking, setPushWorking] = useState(false)
+  const [pushError, setPushError] = useState<string | null>(null)
+  const [testWorking, setTestWorking] = useState(false)
+  const [testResult, setTestResult] = useState<{ ok: boolean; texto: string } | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+
+    getPushStatus()
+      .then((s) => {
+        if (!cancelled) setPushStatus(s)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setPushStatus('default')
+        setPushError('No se pudo leer el estado de las notificaciones.')
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -247,6 +271,51 @@ export function SettingsScreen() {
     setTmdbInfo('Clave de TMDB quitada.')
   }
 
+  async function handleActivarPush() {
+    if (!session || pushWorking) return
+    setPushWorking(true)
+    setPushError(null)
+    setTestResult(null)
+    try {
+      setPushStatus(await subscribeToPush(session.user.id))
+    } catch (err) {
+      setPushError(err instanceof Error ? err.message : 'No se pudieron activar las notificaciones.')
+    } finally {
+      setPushWorking(false)
+    }
+  }
+
+  async function handleDesactivarPush() {
+    if (pushWorking) return
+    setPushWorking(true)
+    setPushError(null)
+    setTestResult(null)
+    try {
+      setPushStatus(await unsubscribeFromPush())
+    } catch (err) {
+      setPushError(err instanceof Error ? err.message : 'No se pudieron desactivar las notificaciones.')
+    } finally {
+      setPushWorking(false)
+    }
+  }
+
+  async function handleProbarPush() {
+    if (testWorking) return
+    setTestWorking(true)
+    setTestResult(null)
+
+    const { error } = await supabase.functions.invoke('send-test-push', { body: {} })
+
+    setTestWorking(false)
+
+    if (error) {
+      setTestResult({ ok: false, texto: await mensajeDeError(error, 'No se pudo mandar la notificación de prueba.') })
+      return
+    }
+
+    setTestResult({ ok: true, texto: 'Notificación de prueba enviada — debería llegarte en unos segundos.' })
+  }
+
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-5 py-5">
       <div>
@@ -254,6 +323,81 @@ export function SettingsScreen() {
         <p className="mt-1 text-sm text-ink-muted">
           Guardá tu propia API key de Gemini. Se cifra antes de guardarse — nunca queda en texto plano.
         </p>
+      </div>
+
+      <div>
+        <h2 className="font-display text-base font-semibold text-ink">Notificaciones</h2>
+        <p className="mt-1 text-sm text-ink-muted">
+          Activalas para recibir avisos de Ámbar en este dispositivo. La suscripción es por
+          navegador — activala en cada uno donde quieras recibirlos.
+        </p>
+      </div>
+
+      <div className="rounded-card border border-border-soft bg-surface p-4 space-y-4">
+        {pushStatus === null ? (
+          <p className="text-sm text-ink-muted">Cargando…</p>
+        ) : pushStatus === 'unsupported' ? (
+          <p className="text-sm text-ink-muted">
+            Este navegador no soporta notificaciones push.
+          </p>
+        ) : (
+          <>
+            <p className="text-sm text-ink">
+              Estado:{' '}
+              {pushStatus === 'subscribed' ? (
+                <span className="text-sage">activadas</span>
+              ) : pushStatus === 'denied' ? (
+                <span className="text-red-400">rechazadas</span>
+              ) : (
+                <span className="text-ink-muted">inactivas</span>
+              )}
+            </p>
+
+            {pushStatus === 'denied' ? (
+              <p className="text-sm text-ink-muted">
+                Bloqueaste las notificaciones para este sitio. Habilitalas desde la configuración
+                del navegador (candado en la barra de direcciones → Notificaciones) y recargá.
+              </p>
+            ) : (
+              <div className="flex gap-2">
+                {pushStatus === 'subscribed' ? (
+                  <button
+                    type="button"
+                    onClick={handleDesactivarPush}
+                    disabled={pushWorking}
+                    className="rounded-input border border-amber px-4 py-2 text-sm text-amber-soft disabled:opacity-50"
+                  >
+                    {pushWorking ? 'Procesando…' : 'Desactivar en este dispositivo'}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleActivarPush}
+                    disabled={pushWorking}
+                    className="rounded-pill bg-amber px-4 py-2 text-sm font-medium text-ink-inverse disabled:opacity-50"
+                  >
+                    {pushWorking ? 'Activando…' : 'Activar notificaciones'}
+                  </button>
+                )}
+                {pushStatus === 'subscribed' && (
+                  <button
+                    type="button"
+                    onClick={handleProbarPush}
+                    disabled={testWorking}
+                    className="rounded-input border border-border-soft px-4 py-2 text-sm text-ink-soft disabled:opacity-50"
+                  >
+                    {testWorking ? 'Enviando…' : 'Probar notificación'}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {pushError && <p className="text-sm text-red-400">{pushError}</p>}
+            {testResult && (
+              <p className={`text-sm ${testResult.ok ? 'text-sage' : 'text-red-400'}`}>{testResult.texto}</p>
+            )}
+          </>
+        )}
       </div>
 
       <div className="rounded-card border border-border-soft bg-surface p-4">
