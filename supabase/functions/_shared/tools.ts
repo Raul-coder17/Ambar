@@ -25,6 +25,7 @@ import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { decryptApiKey } from './crypto.ts'
 import { generarEmbedding } from './embeddings.ts'
 import { CATEGORIA_ESTILO, clave, esHechoDeEstilo, MAX_LARGO_HECHO, normalizarArgsHecho } from './memoria.ts'
+import { FRECUENCIAS, MAX_LARGO_DESCRIPCION, NOMBRE_FRECUENCIA, normalizarArgsObjetivo } from './objetivos.ts'
 import { MAX_LARGO_PIZARRA, normalizarArgsPizarra } from './pizarra.ts'
 import { buscarRecuerdos } from './recuerdos.ts'
 import { buscarRecetas } from './spoonacular.ts'
@@ -808,6 +809,79 @@ const buscarPeliculasSeriesTool: Tool = {
   },
 }
 
+// --- crear_objetivo (Fase 5, Paso 2) -----------------------------------------
+//
+// A diferencia de buscar_en_internet (una consulta puntual), esto crea un
+// objetivo VIGILADO: la Edge Function de Paso 3, disparada por pg_cron
+// (Paso 4), lo va a revisar sola con la frecuencia elegida y notificar por
+// push sólo si encuentra una novedad real. Acá sólo se da de alta la fila —
+// no se llama a Tavily ni se corre ninguna búsqueda en este handler.
+//
+// Sin `soloModo`: disponible en los dos modos, mismo criterio que
+// recordar_hecho/buscar_en_internet — es un pedido que el usuario puede
+// hacer hablando o escribiendo, sin razón para restringirlo a uno solo.
+const crearObjetivoTool: Tool = {
+  declaration: {
+    name: 'crear_objetivo',
+    description:
+      'Crea un objetivo para que vigiles algo periódicamente y avises al usuario por notificación push SOLO cuando haya una novedad real (nunca por cambios triviales de redacción entre una revisión y la siguiente). ' +
+      'Usala cuando el usuario pida que estés pendiente de algo a lo largo del tiempo: que baje un precio, que se anuncie una fecha, disponibilidad de algo, noticias sobre un tema puntual que todavía no pasó. ' +
+      'NO la uses para preguntas que se responden ahora mismo con buscar_en_internet — un objetivo es para revisar más adelante, no para esta respuesta.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        descripcion: {
+          type: 'STRING',
+          description:
+            `Qué vigilar, en una frase clara que se entienda sola sin el resto de la charla (ej. "precio de la PlayStation 5 en Argentina", "fecha de lanzamiento de GTA 6"). Es la base de las búsquedas periódicas. Máximo ${MAX_LARGO_DESCRIPCION} caracteres.`,
+        },
+        frecuencia: {
+          type: 'STRING',
+          enum: [...FRECUENCIAS],
+          description:
+            'Cada cuánto revisar: "cada_6h", "diario" o "semanal". Opcional — si el usuario no lo pide, no la mandes y queda en "diario" por defecto.',
+        },
+      },
+      required: ['descripcion'],
+    },
+  },
+
+  handler: async (args, ctx) => {
+    const propuesto = normalizarArgsObjetivo(args)
+    if (!propuesto) {
+      return {
+        creado: false,
+        nota: `No pude crear el objetivo: la descripción vino vacía o pasa los ${MAX_LARGO_DESCRIPCION} caracteres. Seguí la conversación con normalidad.`,
+      }
+    }
+
+    const { error } = await ctx.supabase.from('objetivos').insert({
+      user_id: ctx.userId,
+      descripcion: propuesto.descripcion,
+      frecuencia: propuesto.frecuencia,
+    })
+
+    if (error) {
+      // P0001 = el trigger objetivos_tope_activos_insert rechazó el alta:
+      // ya tiene 5 objetivos activos (ver la migración de Paso 1). Ese
+      // mensaje ya sale en español y pensado para el usuario, se manda tal
+      // cual en vez de reformularlo.
+      if (error.code === 'P0001') {
+        return { creado: false, nota: `${error.message}. Seguí la conversación con normalidad.` }
+      }
+      console.error('[crear_objetivo] falló el insert:', error.message)
+      return { creado: false, nota: 'No pude crear el objetivo en este momento. Seguí la conversación con normalidad.' }
+    }
+
+    return {
+      creado: true,
+      nota:
+        `Listo, voy a vigilar "${propuesto.descripcion}" y te aviso por notificación si encuentro una novedad real. ` +
+        `Reviso ${NOMBRE_FRECUENCIA[propuesto.frecuencia]}. No hace falta que se lo repitas al usuario, ya se lo estás confirmando vos.`,
+    }
+  },
+}
+
 // ---------------------------------------------------------------------------
 
 export const TOOLS: Tool[] = [
@@ -818,6 +892,7 @@ export const TOOLS: Tool[] = [
   buscarEnInternetTool,
   buscarRecetasTool,
   buscarPeliculasSeriesTool,
+  crearObjetivoTool,
 ]
 
 export function toolDeclarations(modo: ModoConversacion): ToolDeclaration[] {
