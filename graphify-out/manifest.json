@@ -67,7 +67,7 @@
   "src/features/settings/SettingsScreen.tsx": {
     "mtime": 1785787715.4996397,
     "ast_hash": "c934cfe57a0cd397984fd0cd80c7334a",
-    "semantic_hash": ""
+    "semantic_hash": "c934cfe57a0cd397984fd0cd80c7334a"
   },
   "src/lib/supabase.ts": {
     "mtime": 1785268577.1870627,
@@ -105,14 +105,14 @@
     "semantic_hash": "391e0adef5a22c6d98deb88dfcab4211"
   },
   "supabase/functions/_shared/tavily.ts": {
-    "mtime": 1785387482.2279134,
-    "ast_hash": "deb7e5ceaec11e31d454185bb2be9d11",
-    "semantic_hash": "deb7e5ceaec11e31d454185bb2be9d11"
+    "mtime": 1785856460.000212,
+    "ast_hash": "295eec02f2c2757a29a81d6f80ff8312",
+    "semantic_hash": "295eec02f2c2757a29a81d6f80ff8312"
   },
   "supabase/functions/_shared/tools.ts": {
-    "mtime": 1785643397.1903214,
-    "ast_hash": "96d3d164e7430c68082c5ece11abd35b",
-    "semantic_hash": "96d3d164e7430c68082c5ece11abd35b"
+    "mtime": 1785855476.7386472,
+    "ast_hash": "e5c614c4cc9f662edbfda0ed5b319bee",
+    "semantic_hash": "e5c614c4cc9f662edbfda0ed5b319bee"
   },
   "supabase/functions/ai-chat/index.ts": {
     "mtime": 1785387482.22892,
@@ -167,12 +167,12 @@
   "tsconfig.app.json": {
     "mtime": 1785787630.4806547,
     "ast_hash": "367d716f18c5ab82338029de038c5635",
-    "semantic_hash": ""
+    "semantic_hash": "367d716f18c5ab82338029de038c5635"
   },
   "tsconfig.json": {
     "mtime": 1785787631.162291,
     "ast_hash": "fa63101f780ebbbeff357cf70f9a04d3",
-    "semantic_hash": ""
+    "semantic_hash": "fa63101f780ebbbeff357cf70f9a04d3"
   },
   "tsconfig.node.json": {
     "mtime": 1784606621.6940112,
@@ -182,12 +182,12 @@
   "vite.config.ts": {
     "mtime": 1785787589.3119223,
     "ast_hash": "c24fd406a7ab2ba404e4c1e4c8b83946",
-    "semantic_hash": ""
+    "semantic_hash": "c24fd406a7ab2ba404e4c1e4c8b83946"
   },
   "PLAN_AMBAR.md": {
     "mtime": 1785853416.4474578,
     "ast_hash": "a0ff6d7cce29f1ed43b67bf6db31968a",
-    "semantic_hash": ""
+    "semantic_hash": "a0ff6d7cce29f1ed43b67bf6db31968a"
   },
   "README.md": {
     "mtime": 1784606621.7105532,
@@ -220,9 +220,9 @@
     "semantic_hash": "8ed0f198b17ad72f9b826b02b8566128"
   },
   "src/features/objetivos/ObjetivosScreen.tsx": {
-    "mtime": 1785372751.9722595,
-    "ast_hash": "b9c9afd810286fedc0090f86d636e611",
-    "semantic_hash": "b9c9afd810286fedc0090f86d636e611"
+    "mtime": 1785877477.439731,
+    "ast_hash": "9a91a13bf62e821fceb61551a28b4070",
+    "semantic_hash": "9a91a13bf62e821fceb61551a28b4070"
   },
   "src/lib/icons.tsx": {
     "mtime": 1785384424.8656619,
@@ -277,26 +277,51 @@
   "src/lib/push.ts": {
     "mtime": 1785853323.6219335,
     "ast_hash": "032d5c028bd14031c881c20f4015b567",
-    "semantic_hash": ""
+    "semantic_hash": "032d5c028bd14031c881c20f4015b567"
   },
   "src/sw.ts": {
     "mtime": 1785787601.2196753,
     "ast_hash": "1a53c15836f941654e868e68b5681586",
-    "semantic_hash": ""
+    "semantic_hash": "1a53c15836f941654e868e68b5681586"
   },
   "supabase/functions/send-test-push/index.ts": {
     "mtime": 1785787675.935575,
     "ast_hash": "8f160b573e96781bb7db86e9a04c431c",
-    "semantic_hash": ""
+    "semantic_hash": "8f160b573e96781bb7db86e9a04c431c"
   },
   "supabase/migrations/20260803000000_push_subscriptions.sql": {
     "mtime": 1785787654.6666863,
     "ast_hash": "ae0f85607ca734324572042687adc349",
-    "semantic_hash": ""
+    "semantic_hash": "ae0f85607ca734324572042687adc349"
   },
   "tsconfig.worker.json": {
     "mtime": 1785788147.6072173,
     "ast_hash": "3b98315db2618fb8de3f55cb565e3a19",
-    "semantic_hash": ""
+    "semantic_hash": "3b98315db2618fb8de3f55cb565e3a19"
+  },
+  "supabase/functions/_shared/objetivos.ts": {
+    "mtime": 1785855452.1267452,
+    "ast_hash": "b3b6a86b992d0e70ecb581145e7e5744",
+    "semantic_hash": "b3b6a86b992d0e70ecb581145e7e5744"
+  },
+  "supabase/functions/revisar-objetivos/comparar.ts": {
+    "mtime": 1785877514.666822,
+    "ast_hash": "ef3ac310e2abc4bc3061b5c5da1590db",
+    "semantic_hash": "ef3ac310e2abc4bc3061b5c5da1590db"
+  },
+  "supabase/functions/revisar-objetivos/index.ts": {
+    "mtime": 1785857099.8566601,
+    "ast_hash": "04b681889ec7425c7dfb86d3d65e95d7",
+    "semantic_hash": "04b681889ec7425c7dfb86d3d65e95d7"
+  },
+  "supabase/migrations/20260804000000_objetivos.sql": {
+    "mtime": 1785855144.4455605,
+    "ast_hash": "d13ca7b9157486c470552e7e2da1965e",
+    "semantic_hash": "d13ca7b9157486c470552e7e2da1965e"
+  },
+  "supabase/migrations/20260804010000_pg_cron_objetivos.sql": {
+    "mtime": 1785857835.5141034,
+    "ast_hash": "ca361df8c524d841adb30e41a51ce66c",
+    "semantic_hash": "ca361df8c524d841adb30e41a51ce66c"
   }
 }
