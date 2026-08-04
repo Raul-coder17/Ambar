@@ -68,7 +68,7 @@ function armarPrompt(descripcion: string, valorAnterior: string | null, resultad
     'Compará ese dato con el último que tenías registrado y decidí si hay un CAMBIO SIGNIFICATIVO: un dato objetivo distinto (precio, fecha, disponibilidad, un hecho nuevo), ' +
     'NUNCA una diferencia de redacción, orden, fuente o forma de decir lo mismo. Ante la duda, no es significativo. ' +
     'Si es la primera revisión (no tenías dato anterior), cambio_significativo siempre tiene que ser false. ' +
-    'Si hay cambio significativo, escribí en mensaje_notificacion una frase breve y clara para avisarle al usuario qué cambió, lista para mandar como notificación push. Si no lo hay, dejalo vacío.',
+    'Si hay cambio significativo, escribí en mensaje_notificacion una frase breve y clara para avisarle al usuario qué cambió, lista para mandar como notificación push. Si no lo hay, dejalo vacío.'
   )
 }
 
