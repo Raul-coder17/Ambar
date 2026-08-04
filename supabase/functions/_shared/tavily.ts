@@ -26,7 +26,19 @@ export type ResultadoTavily =
   | { ok: true; resultados: ResultadoBusqueda[] }
   | { ok: false; error: string }
 
-export async function buscarEnInternet(apiKey: string, query: string): Promise<ResultadoTavily> {
+export async function buscarEnInternet(
+  apiKey: string,
+  query: string,
+  // 'advanced' hace mejor extracción de contenido que 'basic' (menos
+  // probable que se pierda un precio o una fecha puntual en el resumen).
+  // Cuesta más cuota por búsqueda, pero el free tier de Tavily (~1000/mes) da
+  // margen de sobra para una consulta puntual como ésta.
+  //
+  // La Edge Function `revisar-objetivos` (Fase 5) pasa 'basic' en cambio: ahí
+  // la búsqueda se repite automáticamente varias veces por día por cada
+  // objetivo activo, y ese gasto repetido sí necesita el modo más barato.
+  profundidad: 'basic' | 'advanced' = 'advanced',
+): Promise<ResultadoTavily> {
   let res: Response
   try {
     res = await fetch(TAVILY_SEARCH_URL, {
@@ -37,11 +49,7 @@ export async function buscarEnInternet(apiKey: string, query: string): Promise<R
       },
       body: JSON.stringify({
         query,
-        // 'advanced' hace mejor extracción de contenido que 'basic' (menos
-        // probable que se pierda un precio o una fecha puntual en el
-        // resumen). Cuesta más cuota por búsqueda, pero el free tier de
-        // Tavily (~1000/mes) da margen de sobra para este uso.
-        search_depth: 'advanced',
+        search_depth: profundidad,
         max_results: MAX_RESULTADOS,
       }),
     })
