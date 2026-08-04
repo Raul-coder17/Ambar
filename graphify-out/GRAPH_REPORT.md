@@ -1,16 +1,16 @@
-# Graph Report - Ámbar  (2026-08-03)
+# Graph Report - Ámbar  (2026-08-04)
 
 ## Corpus Check
-- 57 files · ~78,737 words
+- 57 files · ~79,611 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 536 nodes · 815 edges · 37 communities (27 shown, 10 thin omitted)
+- 538 nodes · 818 edges · 37 communities (27 shown, 10 thin omitted)
 - Extraction: 97% EXTRACTED · 3% INFERRED · 0% AMBIGUOUS · INFERRED: 22 edges (avg confidence: 0.85)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `3272dcc1`
+- Built from commit: `3520d172`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -56,10 +56,10 @@
 2. `react` - 15 edges
 3. `compilerOptions` - 15 edges
 4. `useAuth()` - 13 edges
-5. `Edge Function live` - 12 edges
-6. `HomeScreen.tsx (shell autenticado)` - 12 edges
-7. `useLiveSession()` - 11 edges
-8. `compilerOptions` - 11 edges
+5. `compilerOptions` - 12 edges
+6. `Edge Function live` - 12 edges
+7. `HomeScreen.tsx (shell autenticado)` - 12 edges
+8. `useLiveSession()` - 11 edges
 9. `supabase` - 10 edges
 10. `_shared/tools.ts (registro compartido de tools)` - 10 edges
 
@@ -86,8 +86,8 @@
 ## Communities (37 total, 10 thin omitted)
 
 ### Community 0 - "Memoria y RAG texto-Live"
-Cohesion: 0.07
-Nodes (52): Pantalla de memoria del mockup, Edge Function ai-chat, Asimetría de RAG texto↔Live, bloqueMemoria (armado del contexto en system instruction), Tool buscar_en_memoria (soloModo live), RPC buscar_memoria_vectorial, Tool buscar_peliculas_series, CATEGORIA_ESTILO (hechos de estilo con prioridad) (+44 more)
+Cohesion: 0.08
+Nodes (48): Pantalla de memoria del mockup, Asimetría de RAG texto↔Live, bloqueMemoria (armado del contexto en system instruction), Tool buscar_en_memoria (soloModo live), RPC buscar_memoria_vectorial, Tool buscar_peliculas_series, CATEGORIA_ESTILO (hechos de estilo con prioridad), Context window compression (ventana deslizante) (+40 more)
 
 ### Community 1 - "Edge Function ai-chat"
 Cohesion: 0.10
@@ -95,7 +95,7 @@ Nodes (14): callGemini(), CORS_HEADERS, GeminiCandidate, GeminiContent, GeminiEr
 
 ### Community 2 - "Chat y renderer de markdown"
 Cohesion: 0.09
-Nodes (22): useConversacion(), abrirCaptura(), Captura, crearReproductor(), int16ABase64(), Reproductor, LiveScreen(), crearWorkletUrl() (+14 more)
+Nodes (23): useConversacion(), abrirCaptura(), Captura, crearReproductor(), int16ABase64(), Reproductor, LiveScreen(), crearWorkletUrl() (+15 more)
 
 ### Community 3 - "Dependencias del proyecto"
 Cohesion: 0.10
@@ -114,8 +114,8 @@ Cohesion: 0.10
 Nodes (20): normalizarArgsPizarra(), PizarraPropuesta, recortar(), buscarEnInternet(), ResultadoBusqueda, ResultadoTavily, buscarEnInternetTool, buscarEnMemoriaTool (+12 more)
 
 ### Community 7 - "BYOK, cifrado y setup base"
-Cohesion: 0.08
-Nodes (31): Pantalla de ajustes del mockup, AI_KEY_ENCRYPTION_SECRET (secret del proyecto), Tabla ajustes_ia, Ámbar (asistente de voz PWA multiusuario), AuthContext.tsx, AuthScreen.tsx, BYOK (clave de API propia por usuario, cifrada), Cifrado AES-GCM de las keys BYOK (+23 more)
+Cohesion: 0.07
+Nodes (35): Pantalla de ajustes del mockup, Edge Function ai-chat, AI_KEY_ENCRYPTION_SECRET (secret del proyecto), Tabla ajustes_ia, Ámbar (asistente de voz PWA multiusuario), AuthContext.tsx, AuthScreen.tsx, BYOK (clave de API propia por usuario, cifrada) (+27 more)
 
 ### Community 8 - "Config TypeScript del cliente"
 Cohesion: 0.07
@@ -171,7 +171,7 @@ Nodes (3): memoria_hechos_set_updated_at, public.memoria_hechos, public.memoria_
 
 ### Community 22 - "Cliente de Tavily"
 Cohesion: 0.12
-Nodes (15): ES2022, WebWorker, compilerOptions, isolatedModules, lib, module, moduleDetection, moduleResolution (+7 more)
+Nodes (16): ES2022, WebWorker, compilerOptions, isolatedModules, lib, module, moduleDetection, moduleResolution (+8 more)
 
 ### Community 23 - "Migracion de perfiles"
 Cohesion: 0.67
@@ -186,7 +186,7 @@ Cohesion: 0.42
 Nodes (7): generarEmbedding(), TaskType, vectorLiteral(), filtrarRecuerdos(), textoDelIntercambio(), buscarRecuerdos(), guardarIntercambio()
 
 ## Knowledge Gaps
-- **180 isolated node(s):** `$schema`, `typescript`, `oxc`, `react/rules-of-hooks`, `warn` (+175 more)
+- **181 isolated node(s):** `$schema`, `typescript`, `oxc`, `react/rules-of-hooks`, `warn` (+176 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **10 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
@@ -195,15 +195,15 @@ _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `react` connect `Shell de la app y auth` to `Chat y renderer de markdown`, `Configuracion de oxlint`?**
   _High betweenness centrality (0.017) - this node is a cross-community bridge._
-- **Why does `_shared/tools.ts (registro compartido de tools)` connect `Memoria y RAG texto-Live` to `Tools externas y mockup`, `Decisiones y bugs del modo Live`?**
+- **Why does `_shared/tools.ts (registro compartido de tools)` connect `Memoria y RAG texto-Live` to `Tools externas y mockup`, `Decisiones y bugs del modo Live`, `BYOK, cifrado y setup base`?**
   _High betweenness centrality (0.013) - this node is a cross-community bridge._
 - **Why does `Edge Function live` connect `Memoria y RAG texto-Live` to `Decisiones y bugs del modo Live`, `BYOK, cifrado y setup base`?**
   _High betweenness centrality (0.012) - this node is a cross-community bridge._
 - **What connects `$schema`, `typescript`, `oxc` to the rest of the system?**
-  _180 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _181 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Memoria y RAG texto-Live` be split into smaller, more focused modules?**
-  _Cohesion score 0.07013574660633484 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.07535460992907801 - nodes in this community are weakly interconnected._
 - **Should `Edge Function ai-chat` be split into smaller, more focused modules?**
   _Cohesion score 0.1 - nodes in this community are weakly interconnected._
 - **Should `Chat y renderer de markdown` be split into smaller, more focused modules?**
-  _Cohesion score 0.08858858858858859 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.08534850640113797 - nodes in this community are weakly interconnected._

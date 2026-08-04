@@ -1108,8 +1108,8 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "src_features_live_pizarrapanel_pizarrapanel",
-      "community": 5,
-      "community_name": "Shell de la app y auth",
+      "community": 2,
+      "community_name": "Chat y renderer de markdown",
       "norm_label": "pizarrapanel()"
     },
     {
@@ -1773,10 +1773,21 @@
       "norm_label": "swreadyornull()"
     },
     {
+      "label": "hasDbSubscription()",
+      "file_type": "code",
+      "source_file": "src/lib/push.ts",
+      "source_location": "L38",
+      "_origin": "ast",
+      "id": "src_lib_push_hasdbsubscription",
+      "community": 5,
+      "community_name": "Shell de la app y auth",
+      "norm_label": "hasdbsubscription()"
+    },
+    {
       "label": "getPushStatus()",
       "file_type": "code",
       "source_file": "src/lib/push.ts",
-      "source_location": "L37",
+      "source_location": "L59",
       "_origin": "ast",
       "id": "src_lib_push_getpushstatus",
       "community": 5,
@@ -1787,7 +1798,7 @@
       "label": "urlBase64ToUint8Array()",
       "file_type": "code",
       "source_file": "src/lib/push.ts",
-      "source_location": "L57",
+      "source_location": "L88",
       "_origin": "ast",
       "id": "src_lib_push_urlbase64touint8array",
       "community": 5,
@@ -1798,7 +1809,7 @@
       "label": "keyToBase64()",
       "file_type": "code",
       "source_file": "src/lib/push.ts",
-      "source_location": "L67",
+      "source_location": "L98",
       "_origin": "ast",
       "id": "src_lib_push_keytobase64",
       "community": 5,
@@ -1809,7 +1820,7 @@
       "label": "subscribeToPush()",
       "file_type": "code",
       "source_file": "src/lib/push.ts",
-      "source_location": "L78",
+      "source_location": "L109",
       "_origin": "ast",
       "id": "src_lib_push_subscribetopush",
       "community": 5,
@@ -1820,7 +1831,7 @@
       "label": "unsubscribeFromPush()",
       "file_type": "code",
       "source_file": "src/lib/push.ts",
-      "source_location": "L122",
+      "source_location": "L153",
       "_origin": "ast",
       "id": "src_lib_push_unsubscribefrompush",
       "community": 5,
@@ -4083,10 +4094,21 @@
       "norm_label": "compileroptions"
     },
     {
-      "label": "target",
+      "label": "tsBuildInfoFile",
       "file_type": "code",
       "source_file": "tsconfig.worker.json",
       "source_location": "L3",
+      "_origin": "ast",
+      "id": "tsconfig_worker_compileroptions_tsbuildinfofile",
+      "community": 22,
+      "community_name": "Cliente de Tavily",
+      "norm_label": "tsbuildinfofile"
+    },
+    {
+      "label": "target",
+      "file_type": "code",
+      "source_file": "tsconfig.worker.json",
+      "source_location": "L4",
       "_origin": "ast",
       "id": "tsconfig_worker_compileroptions_target",
       "community": 22,
@@ -4097,7 +4119,7 @@
       "label": "lib",
       "file_type": "code",
       "source_file": "tsconfig.worker.json",
-      "source_location": "L4",
+      "source_location": "L5",
       "_origin": "ast",
       "id": "tsconfig_worker_compileroptions_lib",
       "community": 22,
@@ -4108,7 +4130,7 @@
       "label": "ES2022",
       "file_type": "concept",
       "source_file": "tsconfig.worker.json",
-      "source_location": "L4",
+      "source_location": "L5",
       "_origin": "ast",
       "id": "ref_es2022",
       "community": 22,
@@ -4119,7 +4141,7 @@
       "label": "WebWorker",
       "file_type": "concept",
       "source_file": "tsconfig.worker.json",
-      "source_location": "L4",
+      "source_location": "L5",
       "_origin": "ast",
       "id": "ref_webworker",
       "community": 22,
@@ -4130,7 +4152,7 @@
       "label": "module",
       "file_type": "code",
       "source_file": "tsconfig.worker.json",
-      "source_location": "L5",
+      "source_location": "L6",
       "_origin": "ast",
       "id": "tsconfig_worker_compileroptions_module",
       "community": 22,
@@ -4141,7 +4163,7 @@
       "label": "moduleResolution",
       "file_type": "code",
       "source_file": "tsconfig.worker.json",
-      "source_location": "L6",
+      "source_location": "L7",
       "_origin": "ast",
       "id": "tsconfig_worker_compileroptions_moduleresolution",
       "community": 22,
@@ -4152,7 +4174,7 @@
       "label": "skipLibCheck",
       "file_type": "code",
       "source_file": "tsconfig.worker.json",
-      "source_location": "L7",
+      "source_location": "L8",
       "_origin": "ast",
       "id": "tsconfig_worker_compileroptions_skiplibcheck",
       "community": 22,
@@ -4163,7 +4185,7 @@
       "label": "isolatedModules",
       "file_type": "code",
       "source_file": "tsconfig.worker.json",
-      "source_location": "L8",
+      "source_location": "L9",
       "_origin": "ast",
       "id": "tsconfig_worker_compileroptions_isolatedmodules",
       "community": 22,
@@ -4174,7 +4196,7 @@
       "label": "moduleDetection",
       "file_type": "code",
       "source_file": "tsconfig.worker.json",
-      "source_location": "L9",
+      "source_location": "L10",
       "_origin": "ast",
       "id": "tsconfig_worker_compileroptions_moduledetection",
       "community": 22,
@@ -4185,7 +4207,7 @@
       "label": "noEmit",
       "file_type": "code",
       "source_file": "tsconfig.worker.json",
-      "source_location": "L10",
+      "source_location": "L11",
       "_origin": "ast",
       "id": "tsconfig_worker_compileroptions_noemit",
       "community": 22,
@@ -4196,7 +4218,7 @@
       "label": "strict",
       "file_type": "code",
       "source_file": "tsconfig.worker.json",
-      "source_location": "L11",
+      "source_location": "L12",
       "_origin": "ast",
       "id": "tsconfig_worker_compileroptions_strict",
       "community": 22,
@@ -4207,7 +4229,7 @@
       "label": "types",
       "file_type": "code",
       "source_file": "tsconfig.worker.json",
-      "source_location": "L12",
+      "source_location": "L13",
       "_origin": "ast",
       "id": "tsconfig_worker_compileroptions_types",
       "community": 22,
@@ -4218,7 +4240,7 @@
       "label": "include",
       "file_type": "code",
       "source_file": "tsconfig.worker.json",
-      "source_location": "L14",
+      "source_location": "L15",
       "_origin": "ast",
       "id": "tsconfig_worker_include",
       "community": 22,
@@ -4229,7 +4251,7 @@
       "label": "src/sw.ts",
       "file_type": "concept",
       "source_file": "tsconfig.worker.json",
-      "source_location": "L14",
+      "source_location": "L15",
       "_origin": "ast",
       "id": "tsconfig_worker_json_ref_src_sw_ts",
       "community": 22,
@@ -4551,8 +4573,8 @@
       "contributor": null,
       "community": 7,
       "norm_label": "ambar (asistente de voz pwa multiusuario)",
-      "id": "plan_ambar_ambar",
-      "community_name": "BYOK, cifrado y setup base"
+      "community_name": "BYOK, cifrado y setup base",
+      "id": "plan_ambar_ambar"
     },
     {
       "label": "Reglas de trabajo del proyecto",
@@ -4565,8 +4587,8 @@
       "contributor": null,
       "community": 7,
       "norm_label": "reglas de trabajo del proyecto",
-      "id": "plan_ambar_reglas_de_trabajo",
-      "community_name": "BYOK, cifrado y setup base"
+      "community_name": "BYOK, cifrado y setup base",
+      "id": "plan_ambar_reglas_de_trabajo"
     },
     {
       "label": "Configuraci\u00f3n de Graphify en \u00c1mbar",
@@ -4579,8 +4601,8 @@
       "contributor": null,
       "community": 7,
       "norm_label": "configuracion de graphify en ambar",
-      "id": "plan_ambar_graphify_config",
-      "community_name": "BYOK, cifrado y setup base"
+      "community_name": "BYOK, cifrado y setup base",
+      "id": "plan_ambar_graphify_config"
     },
     {
       "label": "Organizador-IA (proyecto de referencia)",
@@ -4593,8 +4615,8 @@
       "contributor": null,
       "community": 7,
       "norm_label": "organizador-ia (proyecto de referencia)",
-      "id": "plan_ambar_organizador_ia",
-      "community_name": "BYOK, cifrado y setup base"
+      "community_name": "BYOK, cifrado y setup base",
+      "id": "plan_ambar_organizador_ia"
     },
     {
       "label": "BYOK (clave de API propia por usuario, cifrada)",
@@ -4607,8 +4629,8 @@
       "contributor": null,
       "community": 7,
       "norm_label": "byok (clave de api propia por usuario, cifrada)",
-      "id": "plan_ambar_byok",
-      "community_name": "BYOK, cifrado y setup base"
+      "community_name": "BYOK, cifrado y setup base",
+      "id": "plan_ambar_byok"
     },
     {
       "label": "Stack PWA: React + TypeScript + Vite + Tailwind",
@@ -4621,8 +4643,8 @@
       "contributor": null,
       "community": 7,
       "norm_label": "stack pwa: react + typescript + vite + tailwind",
-      "id": "plan_ambar_stack_pwa",
-      "community_name": "BYOK, cifrado y setup base"
+      "community_name": "BYOK, cifrado y setup base",
+      "id": "plan_ambar_stack_pwa"
     },
     {
       "label": "Supabase (Auth, Postgres, Edge Functions)",
@@ -4635,8 +4657,8 @@
       "contributor": null,
       "community": 7,
       "norm_label": "supabase (auth, postgres, edge functions)",
-      "id": "plan_ambar_supabase",
-      "community_name": "BYOK, cifrado y setup base"
+      "community_name": "BYOK, cifrado y setup base",
+      "id": "plan_ambar_supabase"
     },
     {
       "label": "pgvector",
@@ -4649,8 +4671,8 @@
       "contributor": null,
       "community": 7,
       "norm_label": "pgvector",
-      "id": "plan_ambar_pgvector",
-      "community_name": "BYOK, cifrado y setup base"
+      "community_name": "BYOK, cifrado y setup base",
+      "id": "plan_ambar_pgvector"
     },
     {
       "label": "pg_cron (scheduled actions)",
@@ -4663,8 +4685,8 @@
       "contributor": null,
       "community": 4,
       "norm_label": "pg_cron (scheduled actions)",
-      "id": "plan_ambar_pg_cron",
-      "community_name": "Decisiones y bugs del modo Live"
+      "community_name": "Decisiones y bugs del modo Live",
+      "id": "plan_ambar_pg_cron"
     },
     {
       "label": "Gemini Live API",
@@ -4677,8 +4699,8 @@
       "contributor": null,
       "community": 0,
       "norm_label": "gemini live api",
-      "id": "plan_ambar_gemini_live_api",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "Memoria y RAG texto-Live",
+      "id": "plan_ambar_gemini_live_api"
     },
     {
       "label": "gemini-3.1-flash-lite (modo texto)",
@@ -4689,10 +4711,10 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 0,
+      "community": 7,
       "norm_label": "gemini-3.1-flash-lite (modo texto)",
-      "id": "plan_ambar_gemini_3_1_flash_lite",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "BYOK, cifrado y setup base",
+      "id": "plan_ambar_gemini_3_1_flash_lite"
     },
     {
       "label": "gemini-3.1-flash-live-preview (LIVE_MODEL)",
@@ -4705,8 +4727,8 @@
       "contributor": null,
       "community": 0,
       "norm_label": "gemini-3.1-flash-live-preview (live_model)",
-      "id": "plan_ambar_gemini_3_1_flash_live_preview",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "Memoria y RAG texto-Live",
+      "id": "plan_ambar_gemini_3_1_flash_live_preview"
     },
     {
       "label": "Tavily (b\u00fasqueda web)",
@@ -4719,8 +4741,8 @@
       "contributor": null,
       "community": 10,
       "norm_label": "tavily (busqueda web)",
-      "id": "plan_ambar_tavily",
-      "community_name": "Tools externas y mockup"
+      "community_name": "Tools externas y mockup",
+      "id": "plan_ambar_tavily"
     },
     {
       "label": "Spoonacular (recetas y nutrici\u00f3n)",
@@ -4733,8 +4755,8 @@
       "contributor": null,
       "community": 10,
       "norm_label": "spoonacular (recetas y nutricion)",
-      "id": "plan_ambar_spoonacular",
-      "community_name": "Tools externas y mockup"
+      "community_name": "Tools externas y mockup",
+      "id": "plan_ambar_spoonacular"
     },
     {
       "label": "TMDB (pel\u00edculas y series)",
@@ -4747,8 +4769,8 @@
       "contributor": null,
       "community": 0,
       "norm_label": "tmdb (peliculas y series)",
-      "id": "plan_ambar_tmdb",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "Memoria y RAG texto-Live",
+      "id": "plan_ambar_tmdb"
     },
     {
       "label": "Fase 0 \u2014 Setup base",
@@ -4761,8 +4783,8 @@
       "contributor": null,
       "community": 7,
       "norm_label": "fase 0 \u2014 setup base",
-      "id": "plan_ambar_fase_0",
-      "community_name": "BYOK, cifrado y setup base"
+      "community_name": "BYOK, cifrado y setup base",
+      "id": "plan_ambar_fase_0"
     },
     {
       "label": "Fase 1 \u2014 Modo texto + tool-calling b\u00e1sico",
@@ -4775,8 +4797,8 @@
       "contributor": null,
       "community": 7,
       "norm_label": "fase 1 \u2014 modo texto + tool-calling basico",
-      "id": "plan_ambar_fase_1",
-      "community_name": "BYOK, cifrado y setup base"
+      "community_name": "BYOK, cifrado y setup base",
+      "id": "plan_ambar_fase_1"
     },
     {
       "label": "Fase 2 \u2014 Memoria (hechos + RAG vectorial)",
@@ -4789,8 +4811,8 @@
       "contributor": null,
       "community": 10,
       "norm_label": "fase 2 \u2014 memoria (hechos + rag vectorial)",
-      "id": "plan_ambar_fase_2",
-      "community_name": "Tools externas y mockup"
+      "community_name": "Tools externas y mockup",
+      "id": "plan_ambar_fase_2"
     },
     {
       "label": "Fase 3 \u2014 B\u00fasqueda web (Tavily)",
@@ -4803,8 +4825,8 @@
       "contributor": null,
       "community": 10,
       "norm_label": "fase 3 \u2014 busqueda web (tavily)",
-      "id": "plan_ambar_fase_3",
-      "community_name": "Tools externas y mockup"
+      "community_name": "Tools externas y mockup",
+      "id": "plan_ambar_fase_3"
     },
     {
       "label": "Fase 4 \u2014 Modo Live (Gemini Live)",
@@ -4817,8 +4839,8 @@
       "contributor": null,
       "community": 0,
       "norm_label": "fase 4 \u2014 modo live (gemini live)",
-      "id": "plan_ambar_fase_4",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "Memoria y RAG texto-Live",
+      "id": "plan_ambar_fase_4"
     },
     {
       "label": "Fase 4d \u2014 Tools habilitadas en Live",
@@ -4831,8 +4853,8 @@
       "contributor": null,
       "community": 4,
       "norm_label": "fase 4d \u2014 tools habilitadas en live",
-      "id": "plan_ambar_fase_4d",
-      "community_name": "Decisiones y bugs del modo Live"
+      "community_name": "Decisiones y bugs del modo Live",
+      "id": "plan_ambar_fase_4d"
     },
     {
       "label": "Fase 4e \u2014 Session resumption y reconexi\u00f3n",
@@ -4845,8 +4867,8 @@
       "contributor": null,
       "community": 4,
       "norm_label": "fase 4e \u2014 session resumption y reconexion",
-      "id": "plan_ambar_fase_4e",
-      "community_name": "Decisiones y bugs del modo Live"
+      "community_name": "Decisiones y bugs del modo Live",
+      "id": "plan_ambar_fase_4e"
     },
     {
       "label": "Fase 4f \u2014 C\u00e1mara en modo Live",
@@ -4859,8 +4881,8 @@
       "contributor": null,
       "community": 4,
       "norm_label": "fase 4f \u2014 camara en modo live",
-      "id": "plan_ambar_fase_4f",
-      "community_name": "Decisiones y bugs del modo Live"
+      "community_name": "Decisiones y bugs del modo Live",
+      "id": "plan_ambar_fase_4f"
     },
     {
       "label": "Fase 4g \u2014 Historial compartido, fallback y forzar sesi\u00f3n",
@@ -4873,8 +4895,8 @@
       "contributor": null,
       "community": 4,
       "norm_label": "fase 4g \u2014 historial compartido, fallback y forzar sesion",
-      "id": "plan_ambar_fase_4g",
-      "community_name": "Decisiones y bugs del modo Live"
+      "community_name": "Decisiones y bugs del modo Live",
+      "id": "plan_ambar_fase_4g"
     },
     {
       "label": "Fase 5 \u2014 Objetivos vigilados (scheduled actions)",
@@ -4887,8 +4909,8 @@
       "contributor": null,
       "community": 4,
       "norm_label": "fase 5 \u2014 objetivos vigilados (scheduled actions)",
-      "id": "plan_ambar_fase_5",
-      "community_name": "Decisiones y bugs del modo Live"
+      "community_name": "Decisiones y bugs del modo Live",
+      "id": "plan_ambar_fase_5"
     },
     {
       "label": "Fase 6 \u2014 Check-in diario",
@@ -4901,8 +4923,8 @@
       "contributor": null,
       "community": 0,
       "norm_label": "fase 6 \u2014 check-in diario",
-      "id": "plan_ambar_fase_6",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "Memoria y RAG texto-Live",
+      "id": "plan_ambar_fase_6"
     },
     {
       "label": "Fase 7 \u2014 UI/UX completo",
@@ -4915,8 +4937,8 @@
       "contributor": null,
       "community": 4,
       "norm_label": "fase 7 \u2014 ui/ux completo",
-      "id": "plan_ambar_fase_7",
-      "community_name": "Decisiones y bugs del modo Live"
+      "community_name": "Decisiones y bugs del modo Live",
+      "id": "plan_ambar_fase_7"
     },
     {
       "label": "Fase 8 \u2014 Backlog de herramientas adicionales",
@@ -4929,8 +4951,8 @@
       "contributor": null,
       "community": 7,
       "norm_label": "fase 8 \u2014 backlog de herramientas adicionales",
-      "id": "plan_ambar_fase_8",
-      "community_name": "BYOK, cifrado y setup base"
+      "community_name": "BYOK, cifrado y setup base",
+      "id": "plan_ambar_fase_8"
     },
     {
       "label": "Edge Function ai-chat",
@@ -4941,10 +4963,10 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 0,
+      "community": 7,
       "norm_label": "edge function ai-chat",
-      "id": "plan_ambar_ai_chat",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "BYOK, cifrado y setup base",
+      "id": "plan_ambar_ai_chat"
     },
     {
       "label": "Edge Function live",
@@ -4957,8 +4979,8 @@
       "contributor": null,
       "community": 0,
       "norm_label": "edge function live",
-      "id": "plan_ambar_live",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "Memoria y RAG texto-Live",
+      "id": "plan_ambar_live"
     },
     {
       "label": "Edge Function manage-ai-key",
@@ -4971,8 +4993,8 @@
       "contributor": null,
       "community": 7,
       "norm_label": "edge function manage-ai-key",
-      "id": "plan_ambar_manage_ai_key",
-      "community_name": "BYOK, cifrado y setup base"
+      "community_name": "BYOK, cifrado y setup base",
+      "id": "plan_ambar_manage_ai_key"
     },
     {
       "label": "_shared/memoria.ts (m\u00f3dulo puro de contexto)",
@@ -4985,8 +5007,8 @@
       "contributor": null,
       "community": 0,
       "norm_label": "_shared/memoria.ts (modulo puro de contexto)",
-      "id": "plan_ambar_shared_memoria",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "Memoria y RAG texto-Live",
+      "id": "plan_ambar_shared_memoria"
     },
     {
       "label": "_shared/recuerdos.ts (I/O sobre memoria_vectorial)",
@@ -4999,8 +5021,8 @@
       "contributor": null,
       "community": 0,
       "norm_label": "_shared/recuerdos.ts (i/o sobre memoria_vectorial)",
-      "id": "plan_ambar_shared_recuerdos",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "Memoria y RAG texto-Live",
+      "id": "plan_ambar_shared_recuerdos"
     },
     {
       "label": "_shared/tools.ts (registro compartido de tools)",
@@ -5013,8 +5035,8 @@
       "contributor": null,
       "community": 0,
       "norm_label": "_shared/tools.ts (registro compartido de tools)",
-      "id": "plan_ambar_shared_tools",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "Memoria y RAG texto-Live",
+      "id": "plan_ambar_shared_tools"
     },
     {
       "label": "_shared/prompt.ts (system instructions)",
@@ -5025,10 +5047,10 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 0,
+      "community": 7,
       "norm_label": "_shared/prompt.ts (system instructions)",
-      "id": "plan_ambar_shared_prompt",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "BYOK, cifrado y setup base",
+      "id": "plan_ambar_shared_prompt"
     },
     {
       "label": "_shared/embeddings.ts",
@@ -5041,8 +5063,8 @@
       "contributor": null,
       "community": 10,
       "norm_label": "_shared/embeddings.ts",
-      "id": "plan_ambar_shared_embeddings",
-      "community_name": "Tools externas y mockup"
+      "community_name": "Tools externas y mockup",
+      "id": "plan_ambar_shared_embeddings"
     },
     {
       "label": "_shared/tavily.ts",
@@ -5055,8 +5077,8 @@
       "contributor": null,
       "community": 10,
       "norm_label": "_shared/tavily.ts",
-      "id": "plan_ambar_shared_tavily_ts",
-      "community_name": "Tools externas y mockup"
+      "community_name": "Tools externas y mockup",
+      "id": "plan_ambar_shared_tavily_ts"
     },
     {
       "label": "_shared/spoonacular.ts",
@@ -5069,8 +5091,8 @@
       "contributor": null,
       "community": 10,
       "norm_label": "_shared/spoonacular.ts",
-      "id": "plan_ambar_shared_spoonacular_ts",
-      "community_name": "Tools externas y mockup"
+      "community_name": "Tools externas y mockup",
+      "id": "plan_ambar_shared_spoonacular_ts"
     },
     {
       "label": "_shared/tmdb.ts",
@@ -5083,8 +5105,8 @@
       "contributor": null,
       "community": 0,
       "norm_label": "_shared/tmdb.ts",
-      "id": "plan_ambar_shared_tmdb_ts",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "Memoria y RAG texto-Live",
+      "id": "plan_ambar_shared_tmdb_ts"
     },
     {
       "label": "_shared/pizarra.ts (m\u00f3dulo puro de saneado)",
@@ -5097,8 +5119,8 @@
       "contributor": null,
       "community": 0,
       "norm_label": "_shared/pizarra.ts (modulo puro de saneado)",
-      "id": "plan_ambar_shared_pizarra",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "Memoria y RAG texto-Live",
+      "id": "plan_ambar_shared_pizarra"
     },
     {
       "label": "rpm.ts (decideRpmSlot, l\u00f3gica pura)",
@@ -5111,8 +5133,8 @@
       "contributor": null,
       "community": 7,
       "norm_label": "rpm.ts (deciderpmslot, logica pura)",
-      "id": "plan_ambar_rpm_ts",
-      "community_name": "BYOK, cifrado y setup base"
+      "community_name": "BYOK, cifrado y setup base",
+      "id": "plan_ambar_rpm_ts"
     },
     {
       "label": "ai-chat/crypto.ts (descifrado factorizado)",
@@ -5125,8 +5147,8 @@
       "contributor": null,
       "community": 7,
       "norm_label": "ai-chat/crypto.ts (descifrado factorizado)",
-      "id": "plan_ambar_crypto_ts",
-      "community_name": "BYOK, cifrado y setup base"
+      "community_name": "BYOK, cifrado y setup base",
+      "id": "plan_ambar_crypto_ts"
     },
     {
       "label": "useLiveSession.ts (hook de sesi\u00f3n Live)",
@@ -5139,8 +5161,8 @@
       "contributor": null,
       "community": 4,
       "norm_label": "uselivesession.ts (hook de sesion live)",
-      "id": "plan_ambar_use_live_session",
-      "community_name": "Decisiones y bugs del modo Live"
+      "community_name": "Decisiones y bugs del modo Live",
+      "id": "plan_ambar_use_live_session"
     },
     {
       "label": "LiveScreen.tsx",
@@ -5153,8 +5175,8 @@
       "contributor": null,
       "community": 4,
       "norm_label": "livescreen.tsx",
-      "id": "plan_ambar_live_screen",
-      "community_name": "Decisiones y bugs del modo Live"
+      "community_name": "Decisiones y bugs del modo Live",
+      "id": "plan_ambar_live_screen"
     },
     {
       "label": "ChatScreen.tsx",
@@ -5167,8 +5189,8 @@
       "contributor": null,
       "community": 4,
       "norm_label": "chatscreen.tsx",
-      "id": "plan_ambar_chat_screen",
-      "community_name": "Decisiones y bugs del modo Live"
+      "community_name": "Decisiones y bugs del modo Live",
+      "id": "plan_ambar_chat_screen"
     },
     {
       "label": "HomeScreen.tsx (shell autenticado)",
@@ -5181,8 +5203,8 @@
       "contributor": null,
       "community": 4,
       "norm_label": "homescreen.tsx (shell autenticado)",
-      "id": "plan_ambar_home_screen",
-      "community_name": "Decisiones y bugs del modo Live"
+      "community_name": "Decisiones y bugs del modo Live",
+      "id": "plan_ambar_home_screen"
     },
     {
       "label": "SettingsScreen.tsx",
@@ -5195,8 +5217,8 @@
       "contributor": null,
       "community": 4,
       "norm_label": "settingsscreen.tsx",
-      "id": "plan_ambar_settings_screen",
-      "community_name": "Decisiones y bugs del modo Live"
+      "community_name": "Decisiones y bugs del modo Live",
+      "id": "plan_ambar_settings_screen"
     },
     {
       "label": "MemoriaScreen.tsx",
@@ -5209,8 +5231,8 @@
       "contributor": null,
       "community": 0,
       "norm_label": "memoriascreen.tsx",
-      "id": "plan_ambar_memoria_screen",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "Memoria y RAG texto-Live",
+      "id": "plan_ambar_memoria_screen"
     },
     {
       "label": "HistorialScreen.tsx",
@@ -5223,8 +5245,8 @@
       "contributor": null,
       "community": 4,
       "norm_label": "historialscreen.tsx",
-      "id": "plan_ambar_historial_screen",
-      "community_name": "Decisiones y bugs del modo Live"
+      "community_name": "Decisiones y bugs del modo Live",
+      "id": "plan_ambar_historial_screen"
     },
     {
       "label": "ObjetivosScreen.tsx (placeholder de Fase 5)",
@@ -5237,8 +5259,8 @@
       "contributor": null,
       "community": 4,
       "norm_label": "objetivosscreen.tsx (placeholder de fase 5)",
-      "id": "plan_ambar_objetivos_screen",
-      "community_name": "Decisiones y bugs del modo Live"
+      "community_name": "Decisiones y bugs del modo Live",
+      "id": "plan_ambar_objetivos_screen"
     },
     {
       "label": "AuthScreen.tsx",
@@ -5251,8 +5273,8 @@
       "contributor": null,
       "community": 7,
       "norm_label": "authscreen.tsx",
-      "id": "plan_ambar_auth_screen",
-      "community_name": "BYOK, cifrado y setup base"
+      "community_name": "BYOK, cifrado y setup base",
+      "id": "plan_ambar_auth_screen"
     },
     {
       "label": "AuthContext.tsx",
@@ -5265,8 +5287,8 @@
       "contributor": null,
       "community": 7,
       "norm_label": "authcontext.tsx",
-      "id": "plan_ambar_auth_context",
-      "community_name": "BYOK, cifrado y setup base"
+      "community_name": "BYOK, cifrado y setup base",
+      "id": "plan_ambar_auth_context"
     },
     {
       "label": "ConversacionContext.tsx (historial compartido en memoria)",
@@ -5279,8 +5301,8 @@
       "contributor": null,
       "community": 4,
       "norm_label": "conversacioncontext.tsx (historial compartido en memoria)",
-      "id": "plan_ambar_conversacion_context",
-      "community_name": "Decisiones y bugs del modo Live"
+      "community_name": "Decisiones y bugs del modo Live",
+      "id": "plan_ambar_conversacion_context"
     },
     {
       "label": "video.ts (captura de c\u00e1mara)",
@@ -5293,8 +5315,8 @@
       "contributor": null,
       "community": 4,
       "norm_label": "video.ts (captura de camara)",
-      "id": "plan_ambar_video_ts",
-      "community_name": "Decisiones y bugs del modo Live"
+      "community_name": "Decisiones y bugs del modo Live",
+      "id": "plan_ambar_video_ts"
     },
     {
       "label": "audio.ts (captura y reproducci\u00f3n de audio)",
@@ -5307,8 +5329,8 @@
       "contributor": null,
       "community": 4,
       "norm_label": "audio.ts (captura y reproduccion de audio)",
-      "id": "plan_ambar_audio_ts",
-      "community_name": "Decisiones y bugs del modo Live"
+      "community_name": "Decisiones y bugs del modo Live",
+      "id": "plan_ambar_audio_ts"
     },
     {
       "label": "PizarraPanel.tsx",
@@ -5321,8 +5343,8 @@
       "contributor": null,
       "community": 4,
       "norm_label": "pizarrapanel.tsx",
-      "id": "plan_ambar_pizarra_panel",
-      "community_name": "Decisiones y bugs del modo Live"
+      "community_name": "Decisiones y bugs del modo Live",
+      "id": "plan_ambar_pizarra_panel"
     },
     {
       "label": "UpdateBanner.tsx",
@@ -5335,8 +5357,8 @@
       "contributor": null,
       "community": 7,
       "norm_label": "updatebanner.tsx",
-      "id": "plan_ambar_update_banner",
-      "community_name": "BYOK, cifrado y setup base"
+      "community_name": "BYOK, cifrado y setup base",
+      "id": "plan_ambar_update_banner"
     },
     {
       "label": "src/lib/markdown.ts (parser puro)",
@@ -5349,8 +5371,8 @@
       "contributor": null,
       "community": 4,
       "norm_label": "src/lib/markdown.ts (parser puro)",
-      "id": "plan_ambar_markdown_lib",
-      "community_name": "Decisiones y bugs del modo Live"
+      "community_name": "Decisiones y bugs del modo Live",
+      "id": "plan_ambar_markdown_lib"
     },
     {
       "label": "src/components/Markdown.tsx",
@@ -5363,8 +5385,8 @@
       "contributor": null,
       "community": 4,
       "norm_label": "src/components/markdown.tsx",
-      "id": "plan_ambar_markdown_component",
-      "community_name": "Decisiones y bugs del modo Live"
+      "community_name": "Decisiones y bugs del modo Live",
+      "id": "plan_ambar_markdown_component"
     },
     {
       "label": "Tool recordar_hecho",
@@ -5377,8 +5399,8 @@
       "contributor": null,
       "community": 0,
       "norm_label": "tool recordar_hecho",
-      "id": "plan_ambar_recordar_hecho",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "Memoria y RAG texto-Live",
+      "id": "plan_ambar_recordar_hecho"
     },
     {
       "label": "Tool olvidar_hecho",
@@ -5391,8 +5413,8 @@
       "contributor": null,
       "community": 0,
       "norm_label": "tool olvidar_hecho",
-      "id": "plan_ambar_olvidar_hecho",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "Memoria y RAG texto-Live",
+      "id": "plan_ambar_olvidar_hecho"
     },
     {
       "label": "Tool buscar_en_internet",
@@ -5405,8 +5427,8 @@
       "contributor": null,
       "community": 10,
       "norm_label": "tool buscar_en_internet",
-      "id": "plan_ambar_buscar_en_internet",
-      "community_name": "Tools externas y mockup"
+      "community_name": "Tools externas y mockup",
+      "id": "plan_ambar_buscar_en_internet"
     },
     {
       "label": "Tool buscar_en_memoria (soloModo live)",
@@ -5419,8 +5441,8 @@
       "contributor": null,
       "community": 0,
       "norm_label": "tool buscar_en_memoria (solomodo live)",
-      "id": "plan_ambar_buscar_en_memoria",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "Memoria y RAG texto-Live",
+      "id": "plan_ambar_buscar_en_memoria"
     },
     {
       "label": "Tool buscar_recetas",
@@ -5433,8 +5455,8 @@
       "contributor": null,
       "community": 4,
       "norm_label": "tool buscar_recetas",
-      "id": "plan_ambar_buscar_recetas",
-      "community_name": "Decisiones y bugs del modo Live"
+      "community_name": "Decisiones y bugs del modo Live",
+      "id": "plan_ambar_buscar_recetas"
     },
     {
       "label": "Tool buscar_peliculas_series",
@@ -5447,8 +5469,8 @@
       "contributor": null,
       "community": 0,
       "norm_label": "tool buscar_peliculas_series",
-      "id": "plan_ambar_buscar_peliculas_series",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "Memoria y RAG texto-Live",
+      "id": "plan_ambar_buscar_peliculas_series"
     },
     {
       "label": "Tool mostrar_en_pantalla (pizarra)",
@@ -5461,8 +5483,8 @@
       "contributor": null,
       "community": 4,
       "norm_label": "tool mostrar_en_pantalla (pizarra)",
-      "id": "plan_ambar_mostrar_en_pantalla",
-      "community_name": "Decisiones y bugs del modo Live"
+      "community_name": "Decisiones y bugs del modo Live",
+      "id": "plan_ambar_mostrar_en_pantalla"
     },
     {
       "label": "Tabla ajustes_ia",
@@ -5475,8 +5497,8 @@
       "contributor": null,
       "community": 7,
       "norm_label": "tabla ajustes_ia",
-      "id": "plan_ambar_ajustes_ia",
-      "community_name": "BYOK, cifrado y setup base"
+      "community_name": "BYOK, cifrado y setup base",
+      "id": "plan_ambar_ajustes_ia"
     },
     {
       "label": "Tabla ia_uso (contador diario)",
@@ -5489,8 +5511,8 @@
       "contributor": null,
       "community": 7,
       "norm_label": "tabla ia_uso (contador diario)",
-      "id": "plan_ambar_ia_uso",
-      "community_name": "BYOK, cifrado y setup base"
+      "community_name": "BYOK, cifrado y setup base",
+      "id": "plan_ambar_ia_uso"
     },
     {
       "label": "Tabla ia_llamadas_log (freno de RPM)",
@@ -5503,8 +5525,8 @@
       "contributor": null,
       "community": 7,
       "norm_label": "tabla ia_llamadas_log (freno de rpm)",
-      "id": "plan_ambar_ia_llamadas_log",
-      "community_name": "BYOK, cifrado y setup base"
+      "community_name": "BYOK, cifrado y setup base",
+      "id": "plan_ambar_ia_llamadas_log"
     },
     {
       "label": "Tabla memoria_vectorial",
@@ -5517,8 +5539,8 @@
       "contributor": null,
       "community": 0,
       "norm_label": "tabla memoria_vectorial",
-      "id": "plan_ambar_memoria_vectorial",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "Memoria y RAG texto-Live",
+      "id": "plan_ambar_memoria_vectorial"
     },
     {
       "label": "Tabla memoria_hechos",
@@ -5531,8 +5553,8 @@
       "contributor": null,
       "community": 0,
       "norm_label": "tabla memoria_hechos",
-      "id": "plan_ambar_memoria_hechos",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "Memoria y RAG texto-Live",
+      "id": "plan_ambar_memoria_hechos"
     },
     {
       "label": "Tabla sesiones_live (lock de sesi\u00f3n)",
@@ -5545,8 +5567,8 @@
       "contributor": null,
       "community": 4,
       "norm_label": "tabla sesiones_live (lock de sesion)",
-      "id": "plan_ambar_sesiones_live",
-      "community_name": "Decisiones y bugs del modo Live"
+      "community_name": "Decisiones y bugs del modo Live",
+      "id": "plan_ambar_sesiones_live"
     },
     {
       "label": "Tabla pizarras",
@@ -5559,8 +5581,8 @@
       "contributor": null,
       "community": 4,
       "norm_label": "tabla pizarras",
-      "id": "plan_ambar_pizarras",
-      "community_name": "Decisiones y bugs del modo Live"
+      "community_name": "Decisiones y bugs del modo Live",
+      "id": "plan_ambar_pizarras"
     },
     {
       "label": "Tabla perfiles",
@@ -5573,8 +5595,8 @@
       "contributor": null,
       "community": 7,
       "norm_label": "tabla perfiles",
-      "id": "plan_ambar_perfiles",
-      "community_name": "BYOK, cifrado y setup base"
+      "community_name": "BYOK, cifrado y setup base",
+      "id": "plan_ambar_perfiles"
     },
     {
       "label": "RPC buscar_memoria_vectorial",
@@ -5587,8 +5609,8 @@
       "contributor": null,
       "community": 0,
       "norm_label": "rpc buscar_memoria_vectorial",
-      "id": "plan_ambar_buscar_memoria_vectorial_rpc",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "Memoria y RAG texto-Live",
+      "id": "plan_ambar_buscar_memoria_vectorial_rpc"
     },
     {
       "label": "RPC reclamar_sesion_live",
@@ -5601,8 +5623,8 @@
       "contributor": null,
       "community": 4,
       "norm_label": "rpc reclamar_sesion_live",
-      "id": "plan_ambar_reclamar_sesion_live",
-      "community_name": "Decisiones y bugs del modo Live"
+      "community_name": "Decisiones y bugs del modo Live",
+      "id": "plan_ambar_reclamar_sesion_live"
     },
     {
       "label": "RPC podar_memoria_vectorial (dise\u00f1ado, no implementado)",
@@ -5615,8 +5637,8 @@
       "contributor": null,
       "community": 0,
       "norm_label": "rpc podar_memoria_vectorial (disenado, no implementado)",
-      "id": "plan_ambar_podar_memoria_vectorial",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "Memoria y RAG texto-Live",
+      "id": "plan_ambar_podar_memoria_vectorial"
     },
     {
       "label": "Migraci\u00f3n 20260728200000_ajustes_ia.sql",
@@ -5629,8 +5651,8 @@
       "contributor": null,
       "community": 7,
       "norm_label": "migracion 20260728200000_ajustes_ia.sql",
-      "id": "plan_ambar_migracion_ajustes_ia",
-      "community_name": "BYOK, cifrado y setup base"
+      "community_name": "BYOK, cifrado y setup base",
+      "id": "plan_ambar_migracion_ajustes_ia"
     },
     {
       "label": "Migraci\u00f3n 20260728230000_memoria.sql",
@@ -5643,8 +5665,8 @@
       "contributor": null,
       "community": 0,
       "norm_label": "migracion 20260728230000_memoria.sql",
-      "id": "plan_ambar_migracion_memoria",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "Memoria y RAG texto-Live",
+      "id": "plan_ambar_migracion_memoria"
     },
     {
       "label": "Migraci\u00f3n 20260728240000_tavily.sql",
@@ -5657,8 +5679,8 @@
       "contributor": null,
       "community": 10,
       "norm_label": "migracion 20260728240000_tavily.sql",
-      "id": "plan_ambar_migracion_tavily",
-      "community_name": "Tools externas y mockup"
+      "community_name": "Tools externas y mockup",
+      "id": "plan_ambar_migracion_tavily"
     },
     {
       "label": "Migraci\u00f3n 20260729010000_forzar_sesion_live.sql",
@@ -5671,8 +5693,8 @@
       "contributor": null,
       "community": 4,
       "norm_label": "migracion 20260729010000_forzar_sesion_live.sql",
-      "id": "plan_ambar_migracion_forzar_sesion_live",
-      "community_name": "Decisiones y bugs del modo Live"
+      "community_name": "Decisiones y bugs del modo Live",
+      "id": "plan_ambar_migracion_forzar_sesion_live"
     },
     {
       "label": "Migraci\u00f3n 20260801000000_spoonacular_tmdb.sql",
@@ -5685,8 +5707,8 @@
       "contributor": null,
       "community": 7,
       "norm_label": "migracion 20260801000000_spoonacular_tmdb.sql",
-      "id": "plan_ambar_migracion_spoonacular_tmdb",
-      "community_name": "BYOK, cifrado y setup base"
+      "community_name": "BYOK, cifrado y setup base",
+      "id": "plan_ambar_migracion_spoonacular_tmdb"
     },
     {
       "label": "Migraci\u00f3n 20260801100000_pizarras.sql",
@@ -5699,8 +5721,8 @@
       "contributor": null,
       "community": 4,
       "norm_label": "migracion 20260801100000_pizarras.sql",
-      "id": "plan_ambar_migracion_pizarras",
-      "community_name": "Decisiones y bugs del modo Live"
+      "community_name": "Decisiones y bugs del modo Live",
+      "id": "plan_ambar_migracion_pizarras"
     },
     {
       "label": "Cifrado AES-GCM de las keys BYOK",
@@ -5713,8 +5735,8 @@
       "contributor": null,
       "community": 7,
       "norm_label": "cifrado aes-gcm de las keys byok",
-      "id": "plan_ambar_cifrado_aes_gcm",
-      "community_name": "BYOK, cifrado y setup base"
+      "community_name": "BYOK, cifrado y setup base",
+      "id": "plan_ambar_cifrado_aes_gcm"
     },
     {
       "label": "AI_KEY_ENCRYPTION_SECRET (secret del proyecto)",
@@ -5727,8 +5749,8 @@
       "contributor": null,
       "community": 7,
       "norm_label": "ai_key_encryption_secret (secret del proyecto)",
-      "id": "plan_ambar_ai_key_encryption_secret",
-      "community_name": "BYOK, cifrado y setup base"
+      "community_name": "BYOK, cifrado y setup base",
+      "id": "plan_ambar_ai_key_encryption_secret"
     },
     {
       "label": "Rate-limiter adaptativo (RPM + cuota diaria)",
@@ -5741,8 +5763,8 @@
       "contributor": null,
       "community": 7,
       "norm_label": "rate-limiter adaptativo (rpm + cuota diaria)",
-      "id": "plan_ambar_rate_limiter_adaptativo",
-      "community_name": "BYOK, cifrado y setup base"
+      "community_name": "BYOK, cifrado y setup base",
+      "id": "plan_ambar_rate_limiter_adaptativo"
     },
     {
       "label": "Cuota diaria aprendida del 429",
@@ -5755,8 +5777,8 @@
       "contributor": null,
       "community": 7,
       "norm_label": "cuota diaria aprendida del 429",
-      "id": "plan_ambar_cuota_diaria_aprendida",
-      "community_name": "BYOK, cifrado y setup base"
+      "community_name": "BYOK, cifrado y setup base",
+      "id": "plan_ambar_cuota_diaria_aprendida"
     },
     {
       "label": "gemini-embedding-2 a 768 dimensiones",
@@ -5769,8 +5791,8 @@
       "contributor": null,
       "community": 10,
       "norm_label": "gemini-embedding-2 a 768 dimensiones",
-      "id": "plan_ambar_embeddings_768",
-      "community_name": "Tools externas y mockup"
+      "community_name": "Tools externas y mockup",
+      "id": "plan_ambar_embeddings_768"
     },
     {
       "label": "taskType asim\u00e9trico (RETRIEVAL_QUERY vs RETRIEVAL_DOCUMENT)",
@@ -5783,8 +5805,8 @@
       "contributor": null,
       "community": 10,
       "norm_label": "tasktype asimetrico (retrieval_query vs retrieval_document)",
-      "id": "plan_ambar_tasktype_asimetrico",
-      "community_name": "Tools externas y mockup"
+      "community_name": "Tools externas y mockup",
+      "id": "plan_ambar_tasktype_asimetrico"
     },
     {
       "label": "Memoria best-effort (nunca rompe el chat)",
@@ -5797,8 +5819,8 @@
       "contributor": null,
       "community": 10,
       "norm_label": "memoria best-effort (nunca rompe el chat)",
-      "id": "plan_ambar_memoria_best_effort",
-      "community_name": "Tools externas y mockup"
+      "community_name": "Tools externas y mockup",
+      "id": "plan_ambar_memoria_best_effort"
     },
     {
       "label": "UMBRAL_SIMILITUD = 0.6 y TOP_K = 5",
@@ -5811,8 +5833,8 @@
       "contributor": null,
       "community": 0,
       "norm_label": "umbral_similitud = 0.6 y top_k = 5",
-      "id": "plan_ambar_umbral_similitud",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "Memoria y RAG texto-Live",
+      "id": "plan_ambar_umbral_similitud"
     },
     {
       "label": "TURNOS_RECIENTES = 8 (recorte de historial)",
@@ -5825,8 +5847,8 @@
       "contributor": null,
       "community": 0,
       "norm_label": "turnos_recientes = 8 (recorte de historial)",
-      "id": "plan_ambar_turnos_recientes",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "Memoria y RAG texto-Live",
+      "id": "plan_ambar_turnos_recientes"
     },
     {
       "label": "bloqueMemoria (armado del contexto en system instruction)",
@@ -5839,8 +5861,8 @@
       "contributor": null,
       "community": 0,
       "norm_label": "bloquememoria (armado del contexto en system instruction)",
-      "id": "plan_ambar_bloque_memoria",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "Memoria y RAG texto-Live",
+      "id": "plan_ambar_bloque_memoria"
     },
     {
       "label": "SYSTEM_INSTRUCTION_BASE",
@@ -5851,10 +5873,10 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 0,
+      "community": 7,
       "norm_label": "system_instruction_base",
-      "id": "plan_ambar_system_instruction_base",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "BYOK, cifrado y setup base",
+      "id": "plan_ambar_system_instruction_base"
     },
     {
       "label": "INSTRUCCION_ESTILO_VOZ",
@@ -5867,8 +5889,8 @@
       "contributor": null,
       "community": 4,
       "norm_label": "instruccion_estilo_voz",
-      "id": "plan_ambar_instruccion_estilo_voz",
-      "community_name": "Decisiones y bugs del modo Live"
+      "community_name": "Decisiones y bugs del modo Live",
+      "id": "plan_ambar_instruccion_estilo_voz"
     },
     {
       "label": "CATEGORIA_ESTILO (hechos de estilo con prioridad)",
@@ -5881,8 +5903,8 @@
       "contributor": null,
       "community": 0,
       "norm_label": "categoria_estilo (hechos de estilo con prioridad)",
-      "id": "plan_ambar_categoria_estilo",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "Memoria y RAG texto-Live",
+      "id": "plan_ambar_categoria_estilo"
     },
     {
       "label": "NOTA_APLICAR_ESTILO (nota del functionResponse)",
@@ -5895,8 +5917,8 @@
       "contributor": null,
       "community": 0,
       "norm_label": "nota_aplicar_estilo (nota del functionresponse)",
-      "id": "plan_ambar_nota_aplicar_estilo",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "Memoria y RAG texto-Live",
+      "id": "plan_ambar_nota_aplicar_estilo"
     },
     {
       "label": "NOTA_IGNORAR_HECHO (nota del functionResponse)",
@@ -5909,8 +5931,8 @@
       "contributor": null,
       "community": 0,
       "norm_label": "nota_ignorar_hecho (nota del functionresponse)",
-      "id": "plan_ambar_nota_ignorar_hecho",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "Memoria y RAG texto-Live",
+      "id": "plan_ambar_nota_ignorar_hecho"
     },
     {
       "label": "Context window compression (ventana deslizante)",
@@ -5923,8 +5945,8 @@
       "contributor": null,
       "community": 0,
       "norm_label": "context window compression (ventana deslizante)",
-      "id": "plan_ambar_context_window_compression",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "Memoria y RAG texto-Live",
+      "id": "plan_ambar_context_window_compression"
     },
     {
       "label": "Session resumption (handle de reanudaci\u00f3n)",
@@ -5937,8 +5959,8 @@
       "contributor": null,
       "community": 0,
       "norm_label": "session resumption (handle de reanudacion)",
-      "id": "plan_ambar_session_resumption",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "Memoria y RAG texto-Live",
+      "id": "plan_ambar_session_resumption"
     },
     {
       "label": "Reconexi\u00f3n con backoff 1s/2s/4s y goAway",
@@ -5951,8 +5973,8 @@
       "contributor": null,
       "community": 4,
       "norm_label": "reconexion con backoff 1s/2s/4s y goaway",
-      "id": "plan_ambar_reconexion_backoff",
-      "community_name": "Decisiones y bugs del modo Live"
+      "community_name": "Decisiones y bugs del modo Live",
+      "id": "plan_ambar_reconexion_backoff"
     },
     {
       "label": "Fallback autom\u00e1tico de Live a modo texto",
@@ -5965,8 +5987,8 @@
       "contributor": null,
       "community": 4,
       "norm_label": "fallback automatico de live a modo texto",
-      "id": "plan_ambar_fallback_a_texto",
-      "community_name": "Decisiones y bugs del modo Live"
+      "community_name": "Decisiones y bugs del modo Live",
+      "id": "plan_ambar_fallback_a_texto"
     },
     {
       "label": "Forzar cierre de la otra sesi\u00f3n Live (estado conflicto)",
@@ -5979,8 +6001,8 @@
       "contributor": null,
       "community": 4,
       "norm_label": "forzar cierre de la otra sesion live (estado conflicto)",
-      "id": "plan_ambar_forzar_sesion",
-      "community_name": "Decisiones y bugs del modo Live"
+      "community_name": "Decisiones y bugs del modo Live",
+      "id": "plan_ambar_forzar_sesion"
     },
     {
       "label": "Tope de 30 tool calls por sesi\u00f3n (higiene, no seguridad)",
@@ -5993,8 +6015,8 @@
       "contributor": null,
       "community": 4,
       "norm_label": "tope de 30 tool calls por sesion (higiene, no seguridad)",
-      "id": "plan_ambar_tope_tool_calls",
-      "community_name": "Decisiones y bugs del modo Live"
+      "community_name": "Decisiones y bugs del modo Live",
+      "id": "plan_ambar_tope_tool_calls"
     },
     {
       "label": "Diagn\u00f3stico de simetr\u00eda de memoria texto\u2194Live",
@@ -6007,8 +6029,8 @@
       "contributor": null,
       "community": 0,
       "norm_label": "diagnostico de simetria de memoria texto\u2194live",
-      "id": "plan_ambar_diagnostico_simetria",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "Memoria y RAG texto-Live",
+      "id": "plan_ambar_diagnostico_simetria"
     },
     {
       "label": "Hallazgo A \u2014 Live no escrib\u00eda en memoria_vectorial",
@@ -6021,8 +6043,8 @@
       "contributor": null,
       "community": 0,
       "norm_label": "hallazgo a \u2014 live no escribia en memoria_vectorial",
-      "id": "plan_ambar_hallazgo_a",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "Memoria y RAG texto-Live",
+      "id": "plan_ambar_hallazgo_a"
     },
     {
       "label": "Hallazgo B \u2014 system instruction congelada en Live",
@@ -6035,8 +6057,8 @@
       "contributor": null,
       "community": 0,
       "norm_label": "hallazgo b \u2014 system instruction congelada en live",
-      "id": "plan_ambar_hallazgo_b",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "Memoria y RAG texto-Live",
+      "id": "plan_ambar_hallazgo_b"
     },
     {
       "label": "Hallazgo C \u2014 instrucciones de estilo renderizadas como trivia",
@@ -6049,8 +6071,8 @@
       "contributor": null,
       "community": 0,
       "norm_label": "hallazgo c \u2014 instrucciones de estilo renderizadas como trivia",
-      "id": "plan_ambar_hallazgo_c",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "Memoria y RAG texto-Live",
+      "id": "plan_ambar_hallazgo_c"
     },
     {
       "label": "Asimetr\u00eda de RAG texto\u2194Live",
@@ -6063,8 +6085,8 @@
       "contributor": null,
       "community": 0,
       "norm_label": "asimetria de rag texto\u2194live",
-      "id": "plan_ambar_asimetria_rag",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "Memoria y RAG texto-Live",
+      "id": "plan_ambar_asimetria_rag"
     },
     {
       "label": "P1 \u2014 no persistir el intercambio si se ejecut\u00f3 olvidar_hecho",
@@ -6077,8 +6099,8 @@
       "contributor": null,
       "community": 0,
       "norm_label": "p1 \u2014 no persistir el intercambio si se ejecuto olvidar_hecho",
-      "id": "plan_ambar_p1_no_guardar_olvido",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "Memoria y RAG texto-Live",
+      "id": "plan_ambar_p1_no_guardar_olvido"
     },
     {
       "label": "S1 \u2014 fragilidad del contrato de string exacto",
@@ -6091,8 +6113,8 @@
       "contributor": null,
       "community": 0,
       "norm_label": "s1 \u2014 fragilidad del contrato de string exacto",
-      "id": "plan_ambar_s1_string_exacto",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "Memoria y RAG texto-Live",
+      "id": "plan_ambar_s1_string_exacto"
     },
     {
       "label": "S3 \u2014 prefijos de log por unidad",
@@ -6105,8 +6127,8 @@
       "contributor": null,
       "community": 0,
       "norm_label": "s3 \u2014 prefijos de log por unidad",
-      "id": "plan_ambar_s3_logging",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "Memoria y RAG texto-Live",
+      "id": "plan_ambar_s3_logging"
     },
     {
       "label": "Instrumentaci\u00f3n de RAG (log de similitudes)",
@@ -6119,8 +6141,8 @@
       "contributor": null,
       "community": 0,
       "norm_label": "instrumentacion de rag (log de similitudes)",
-      "id": "plan_ambar_instrumentacion_rag",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "Memoria y RAG texto-Live",
+      "id": "plan_ambar_instrumentacion_rag"
     },
     {
       "label": "recuerdosRecientes() \u2014 recencia al abrir Live",
@@ -6133,8 +6155,8 @@
       "contributor": null,
       "community": 0,
       "norm_label": "recuerdosrecientes() \u2014 recencia al abrir live",
-      "id": "plan_ambar_recuerdos_recientes",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "Memoria y RAG texto-Live",
+      "id": "plan_ambar_recuerdos_recientes"
     },
     {
       "label": "Reanudar no es abrir (guarda contra re-mint)",
@@ -6147,8 +6169,8 @@
       "contributor": null,
       "community": 0,
       "norm_label": "reanudar no es abrir (guarda contra re-mint)",
-      "id": "plan_ambar_reanudar_no_es_abrir",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "Memoria y RAG texto-Live",
+      "id": "plan_ambar_reanudar_no_es_abrir"
     },
     {
       "label": "Poda de memoria_vectorial (dise\u00f1ada, pendiente)",
@@ -6161,8 +6183,8 @@
       "contributor": null,
       "community": 0,
       "norm_label": "poda de memoria_vectorial (disenada, pendiente)",
-      "id": "plan_ambar_poda_memoria_vectorial",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "Memoria y RAG texto-Live",
+      "id": "plan_ambar_poda_memoria_vectorial"
     },
     {
       "label": "Pizarra visual (Paso 1, 2a, 2b, 2c)",
@@ -6175,8 +6197,8 @@
       "contributor": null,
       "community": 4,
       "norm_label": "pizarra visual (paso 1, 2a, 2b, 2c)",
-      "id": "plan_ambar_pizarra_visual",
-      "community_name": "Decisiones y bugs del modo Live"
+      "community_name": "Decisiones y bugs del modo Live",
+      "id": "plan_ambar_pizarra_visual"
     },
     {
       "label": "Premisa: audio nativo s\u00f3lo admite responseModalities AUDIO",
@@ -6189,8 +6211,8 @@
       "contributor": null,
       "community": 0,
       "norm_label": "premisa: audio nativo solo admite responsemodalities audio",
-      "id": "plan_ambar_responsemodalities_audio",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "Memoria y RAG texto-Live",
+      "id": "plan_ambar_responsemodalities_audio"
     },
     {
       "label": "Dedupe de pizarras (\u00edndice \u00fanico + dedupe en cliente)",
@@ -6203,8 +6225,8 @@
       "contributor": null,
       "community": 4,
       "norm_label": "dedupe de pizarras (indice unico + dedupe en cliente)",
-      "id": "plan_ambar_dedupe_pizarras",
-      "community_name": "Decisiones y bugs del modo Live"
+      "community_name": "Decisiones y bugs del modo Live",
+      "id": "plan_ambar_dedupe_pizarras"
     },
     {
       "label": "PISO_CORTE_LINDO (truncado con corte limpio)",
@@ -6217,8 +6239,8 @@
       "contributor": null,
       "community": 0,
       "norm_label": "piso_corte_lindo (truncado con corte limpio)",
-      "id": "plan_ambar_piso_corte_lindo",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "Memoria y RAG texto-Live",
+      "id": "plan_ambar_piso_corte_lindo"
     },
     {
       "label": "Subconjunto de markdown soportado",
@@ -6231,8 +6253,8 @@
       "contributor": null,
       "community": 4,
       "norm_label": "subconjunto de markdown soportado",
-      "id": "plan_ambar_subconjunto_markdown",
-      "community_name": "Decisiones y bugs del modo Live"
+      "community_name": "Decisiones y bugs del modo Live",
+      "id": "plan_ambar_subconjunto_markdown"
     },
     {
       "label": "Bug de layout: h-full contra flex-grow",
@@ -6245,8 +6267,8 @@
       "contributor": null,
       "community": 4,
       "norm_label": "bug de layout: h-full contra flex-grow",
-      "id": "plan_ambar_bug_layout_h_full",
-      "community_name": "Decisiones y bugs del modo Live"
+      "community_name": "Decisiones y bugs del modo Live",
+      "id": "plan_ambar_bug_layout_h_full"
     },
     {
       "label": "Bug de layout: min-h-svh vs h-svh (tab bar desaparec\u00eda)",
@@ -6259,8 +6281,8 @@
       "contributor": null,
       "community": 4,
       "norm_label": "bug de layout: min-h-svh vs h-svh (tab bar desaparecia)",
-      "id": "plan_ambar_bug_layout_min_h_svh",
-      "community_name": "Decisiones y bugs del modo Live"
+      "community_name": "Decisiones y bugs del modo Live",
+      "id": "plan_ambar_bug_layout_min_h_svh"
     },
     {
       "label": "Fix: FAB de voz tapando el composer de Chat",
@@ -6273,8 +6295,8 @@
       "contributor": null,
       "community": 4,
       "norm_label": "fix: fab de voz tapando el composer de chat",
-      "id": "plan_ambar_fix_fab_composer",
-      "community_name": "Decisiones y bugs del modo Live"
+      "community_name": "Decisiones y bugs del modo Live",
+      "id": "plan_ambar_fix_fab_composer"
     },
     {
       "label": "Fix: zoom autom\u00e1tico de iOS en inputs menores a 16px",
@@ -6287,8 +6309,8 @@
       "contributor": null,
       "community": 4,
       "norm_label": "fix: zoom automatico de ios en inputs menores a 16px",
-      "id": "plan_ambar_fix_zoom_ios",
-      "community_name": "Decisiones y bugs del modo Live"
+      "community_name": "Decisiones y bugs del modo Live",
+      "id": "plan_ambar_fix_zoom_ios"
     },
     {
       "label": "Detecci\u00f3n de actualizaci\u00f3n de la PWA (registerType prompt)",
@@ -6301,8 +6323,8 @@
       "contributor": null,
       "community": 7,
       "norm_label": "deteccion de actualizacion de la pwa (registertype prompt)",
-      "id": "plan_ambar_deteccion_actualizacion_pwa",
-      "community_name": "BYOK, cifrado y setup base"
+      "community_name": "BYOK, cifrado y setup base",
+      "id": "plan_ambar_deteccion_actualizacion_pwa"
     },
     {
       "label": "Tokens de dise\u00f1o v\u00eda @theme de Tailwind v4",
@@ -6315,8 +6337,8 @@
       "contributor": null,
       "community": 7,
       "norm_label": "tokens de diseno via @theme de tailwind v4",
-      "id": "plan_ambar_tokens_theme_tailwind",
-      "community_name": "BYOK, cifrado y setup base"
+      "community_name": "BYOK, cifrado y setup base",
+      "id": "plan_ambar_tokens_theme_tailwind"
     },
     {
       "label": "Router real con react-router-dom",
@@ -6329,8 +6351,8 @@
       "contributor": null,
       "community": 4,
       "norm_label": "router real con react-router-dom",
-      "id": "plan_ambar_router_react_router",
-      "community_name": "Decisiones y bugs del modo Live"
+      "community_name": "Decisiones y bugs del modo Live",
+      "id": "plan_ambar_router_react_router"
     },
     {
       "label": "Cambio de c\u00e1mara frontal/trasera",
@@ -6343,8 +6365,8 @@
       "contributor": null,
       "community": 4,
       "norm_label": "cambio de camara frontal/trasera",
-      "id": "plan_ambar_cambio_camara",
-      "community_name": "Decisiones y bugs del modo Live"
+      "community_name": "Decisiones y bugs del modo Live",
+      "id": "plan_ambar_cambio_camara"
     },
     {
       "label": "Bug: cambio a c\u00e1mara trasera fallaba en Android (un pipe por vez)",
@@ -6357,8 +6379,8 @@
       "contributor": null,
       "community": 4,
       "norm_label": "bug: cambio a camara trasera fallaba en android (un pipe por vez)",
-      "id": "plan_ambar_bug_camara_android",
-      "community_name": "Decisiones y bugs del modo Live"
+      "community_name": "Decisiones y bugs del modo Live",
+      "id": "plan_ambar_bug_camara_android"
     },
     {
       "label": "Smoke test que pasa el gateway de Supabase",
@@ -6371,8 +6393,8 @@
       "contributor": null,
       "community": 7,
       "norm_label": "smoke test que pasa el gateway de supabase",
-      "id": "plan_ambar_smoke_test_gateway",
-      "community_name": "BYOK, cifrado y setup base"
+      "community_name": "BYOK, cifrado y setup base",
+      "id": "plan_ambar_smoke_test_gateway"
     },
     {
       "label": "Live API reference (ai.google.dev)",
@@ -6385,8 +6407,8 @@
       "contributor": null,
       "community": 0,
       "norm_label": "live api reference (ai.google.dev)",
-      "id": "plan_ambar_live_api_reference",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "Memoria y RAG texto-Live",
+      "id": "plan_ambar_live_api_reference"
     },
     {
       "label": "Firebase AI Logic \u2014 Live API sessions",
@@ -6399,8 +6421,8 @@
       "contributor": null,
       "community": 0,
       "norm_label": "firebase ai logic \u2014 live api sessions",
-      "id": "plan_ambar_firebase_ai_logic_sessions",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "Memoria y RAG texto-Live",
+      "id": "plan_ambar_firebase_ai_logic_sessions"
     },
     {
       "label": "livekit/agents issue #5496",
@@ -6413,8 +6435,8 @@
       "contributor": null,
       "community": 0,
       "norm_label": "livekit/agents issue #5496",
-      "id": "plan_ambar_livekit_agents_5496",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "Memoria y RAG texto-Live",
+      "id": "plan_ambar_livekit_agents_5496"
     },
     {
       "label": "googleapis/python-genai issue #380",
@@ -6427,8 +6449,8 @@
       "contributor": null,
       "community": 0,
       "norm_label": "googleapis/python-genai issue #380",
-      "id": "plan_ambar_python_genai_380",
-      "community_name": "Memoria y RAG texto-Live"
+      "community_name": "Memoria y RAG texto-Live",
+      "id": "plan_ambar_python_genai_380"
     }
   ],
   "links": [
@@ -9530,11 +9552,22 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/lib/push.ts",
-      "source_location": "L37",
+      "source_location": "L59",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_lib_push",
       "target": "src_lib_push_getpushstatus",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "src/lib/push.ts",
+      "source_location": "L38",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "src_lib_push",
+      "target": "src_lib_push_hasdbsubscription",
       "confidence_score": 1.0
     },
     {
@@ -9552,7 +9585,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/lib/push.ts",
-      "source_location": "L67",
+      "source_location": "L98",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_lib_push",
@@ -9574,7 +9607,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/lib/push.ts",
-      "source_location": "L78",
+      "source_location": "L109",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_lib_push",
@@ -9596,7 +9629,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/lib/push.ts",
-      "source_location": "L122",
+      "source_location": "L153",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_lib_push",
@@ -9607,7 +9640,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/lib/push.ts",
-      "source_location": "L57",
+      "source_location": "L88",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_lib_push",
@@ -9654,7 +9687,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/lib/push.ts",
-      "source_location": "L38",
+      "source_location": "L60",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_lib_push_getpushstatus",
@@ -9666,7 +9699,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/lib/push.ts",
-      "source_location": "L79",
+      "source_location": "L110",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_lib_push_subscribetopush",
@@ -9678,7 +9711,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/lib/push.ts",
-      "source_location": "L123",
+      "source_location": "L154",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_lib_push_unsubscribefrompush",
@@ -9690,7 +9723,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/lib/push.ts",
-      "source_location": "L46",
+      "source_location": "L68",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_lib_push_getpushstatus",
@@ -9702,7 +9735,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/lib/push.ts",
-      "source_location": "L89",
+      "source_location": "L120",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_lib_push_subscribetopush",
@@ -9714,7 +9747,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/lib/push.ts",
-      "source_location": "L124",
+      "source_location": "L155",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_lib_push_unsubscribefrompush",
@@ -9726,7 +9759,19 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/lib/push.ts",
-      "source_location": "L125",
+      "source_location": "L73",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "src_lib_push_getpushstatus",
+      "target": "src_lib_push_hasdbsubscription",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "src/lib/push.ts",
+      "source_location": "L156",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_lib_push_unsubscribefrompush",
@@ -9738,7 +9783,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/lib/push.ts",
-      "source_location": "L102",
+      "source_location": "L133",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_lib_push_subscribetopush",
@@ -9750,7 +9795,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/lib/push.ts",
-      "source_location": "L110",
+      "source_location": "L141",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_lib_push_subscribetopush",
@@ -12726,7 +12771,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tsconfig.worker.json",
-      "source_location": "L14",
+      "source_location": "L15",
       "weight": 1.0,
       "_origin": "ast",
       "source": "tsconfig_worker",
@@ -12737,7 +12782,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tsconfig.worker.json",
-      "source_location": "L8",
+      "source_location": "L9",
       "weight": 1.0,
       "_origin": "ast",
       "source": "tsconfig_worker_compileroptions",
@@ -12748,7 +12793,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tsconfig.worker.json",
-      "source_location": "L4",
+      "source_location": "L5",
       "weight": 1.0,
       "_origin": "ast",
       "source": "tsconfig_worker_compileroptions",
@@ -12759,7 +12804,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tsconfig.worker.json",
-      "source_location": "L5",
+      "source_location": "L6",
       "weight": 1.0,
       "_origin": "ast",
       "source": "tsconfig_worker_compileroptions",
@@ -12770,7 +12815,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tsconfig.worker.json",
-      "source_location": "L9",
+      "source_location": "L10",
       "weight": 1.0,
       "_origin": "ast",
       "source": "tsconfig_worker_compileroptions",
@@ -12781,7 +12826,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tsconfig.worker.json",
-      "source_location": "L6",
+      "source_location": "L7",
       "weight": 1.0,
       "_origin": "ast",
       "source": "tsconfig_worker_compileroptions",
@@ -12792,7 +12837,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tsconfig.worker.json",
-      "source_location": "L10",
+      "source_location": "L11",
       "weight": 1.0,
       "_origin": "ast",
       "source": "tsconfig_worker_compileroptions",
@@ -12803,7 +12848,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tsconfig.worker.json",
-      "source_location": "L7",
+      "source_location": "L8",
       "weight": 1.0,
       "_origin": "ast",
       "source": "tsconfig_worker_compileroptions",
@@ -12814,7 +12859,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tsconfig.worker.json",
-      "source_location": "L11",
+      "source_location": "L12",
       "weight": 1.0,
       "_origin": "ast",
       "source": "tsconfig_worker_compileroptions",
@@ -12825,7 +12870,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tsconfig.worker.json",
-      "source_location": "L3",
+      "source_location": "L4",
       "weight": 1.0,
       "_origin": "ast",
       "source": "tsconfig_worker_compileroptions",
@@ -12836,7 +12881,18 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tsconfig.worker.json",
-      "source_location": "L12",
+      "source_location": "L3",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "tsconfig_worker_compileroptions",
+      "target": "tsconfig_worker_compileroptions_tsbuildinfofile",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "tsconfig.worker.json",
+      "source_location": "L13",
       "weight": 1.0,
       "_origin": "ast",
       "source": "tsconfig_worker_compileroptions",
@@ -12847,7 +12903,7 @@
       "relation": "extends",
       "confidence": "EXTRACTED",
       "source_file": "tsconfig.worker.json",
-      "source_location": "L4",
+      "source_location": "L5",
       "weight": 1.0,
       "context": "import",
       "_origin": "ast",
@@ -12859,7 +12915,7 @@
       "relation": "extends",
       "confidence": "EXTRACTED",
       "source_file": "tsconfig.worker.json",
-      "source_location": "L4",
+      "source_location": "L5",
       "weight": 1.0,
       "context": "import",
       "_origin": "ast",
@@ -12871,7 +12927,7 @@
       "relation": "extends",
       "confidence": "EXTRACTED",
       "source_file": "tsconfig.worker.json",
-      "source_location": "L14",
+      "source_location": "L15",
       "weight": 1.0,
       "context": "import",
       "_origin": "ast",
@@ -15462,5 +15518,5 @@
       "source_file": "PLAN_AMBAR.md"
     }
   ],
-  "built_at_commit": "3272dcc1ed4faf9da718719776fa7a0e8dc3bb48"
+  "built_at_commit": "3520d17249bd8b7d82a837855008376510240c78"
 }

@@ -32,8 +32,30 @@ export async function swReadyOrNull(): Promise<ServiceWorkerRegistration | null>
   ])
 }
 
-// Estado actual: combina el permiso de Notification con si ya hay una
-// suscripción activa en el service worker.
+// ¿Existe una fila en push_subscriptions para este endpoint? La RLS de la
+// tabla ya scopea el select a auth.uid(), así que alcanza con filtrar por
+// endpoint — si la fila fuera de otro usuario, ni siquiera sería visible acá.
+async function hasDbSubscription(endpoint: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('push_subscriptions')
+    .select('id')
+    .eq('endpoint', endpoint)
+    .maybeSingle()
+  // Ante un error de red/lectura no confirmamos nada: mejor mostrar "no
+  // activadas" (falso negativo, se resuelve reactivando) que mentir
+  // "activadas" sobre una fila que no pudimos verificar.
+  if (error) return false
+  return data !== null
+}
+
+// Estado actual: permiso de Notification + suscripción del navegador +
+// confirmación de que esa suscripción tiene su fila en push_subscriptions.
+// Las dos primeras por sí solas no alcanzan: el navegador puede tener una
+// suscripción viva y huérfana (por ejemplo, sobrevivió a una rotación de la
+// VAPID key en el servidor, o el guardado en la base falló en su momento) sin
+// que exista fila correspondiente — mostrar "activadas" en ese caso miente,
+// y "Probar notificación" falla con un error confuso en vez de indicar que
+// hace falta reactivar.
 export async function getPushStatus(): Promise<PushStatus> {
   if (!isPushSupported()) return 'unsupported'
   if (Notification.permission === 'denied') return 'denied'
@@ -46,7 +68,16 @@ export async function getPushStatus(): Promise<PushStatus> {
     const reg = await swReadyOrNull()
     if (!reg) return 'granted'
     const sub = await reg.pushManager.getSubscription()
-    return sub ? 'subscribed' : 'granted'
+    if (!sub) return 'granted'
+
+    if (await hasDbSubscription(sub.endpoint)) return 'subscribed'
+
+    // Suscripción huérfana: el navegador la tiene, la base no. La damos de
+    // baja acá mismo para que el próximo "Activar" cree una suscripción
+    // nueva de verdad en vez de reusar esta (subscribeToPush reusa la que
+    // encuentre) y volver a fallar en silencio con la misma rota.
+    await sub.unsubscribe().catch(() => {})
+    return 'granted'
   } catch {
     return 'granted'
   }
