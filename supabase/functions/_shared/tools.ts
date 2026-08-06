@@ -24,9 +24,10 @@
 import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { decryptApiKey } from './crypto.ts'
 import { generarEmbedding } from './embeddings.ts'
-import { CATEGORIA_ESTILO, clave, esHechoDeEstilo, MAX_LARGO_HECHO, normalizarArgsHecho } from './memoria.ts'
+import { CATEGORIA_ESTILO, clave, esHechoDeEstilo, MAX_LARGO_HECHO, normalizarArgsHecho, tiempoRelativo } from './memoria.ts'
 import { FRECUENCIAS, MAX_LARGO_DESCRIPCION, NOMBRE_FRECUENCIA, normalizarArgsObjetivo } from './objetivos.ts'
 import { MAX_LARGO_PIZARRA, normalizarArgsPizarra } from './pizarra.ts'
+import { fechaActual } from './prompt.ts'
 import { buscarRecuerdos } from './recuerdos.ts'
 import { buscarRecetas } from './spoonacular.ts'
 import { buscarEnInternet } from './tavily.ts'
@@ -423,10 +424,12 @@ const buscarEnMemoriaTool: Tool = {
 
     // Misma key BYOK de Gemini que ya usa el resto de la memoria (Fase 2): el
     // embedding de la consulta es del mismo proveedor que el chat, no hace
-    // falta una key nueva.
+    // falta una key nueva. `zona_horaria` viaja en el mismo select — sin costo
+    // extra — para poder anotar cada recuerdo con `tiempoRelativo` más abajo,
+    // igual que hace `bloqueMemoria`.
     const { data: settings, error } = await ctx.supabase
       .from('ajustes_ia')
-      .select('gemini_api_key_encrypted')
+      .select('gemini_api_key_encrypted, zona_horaria')
       .eq('user_id', ctx.userId)
       .maybeSingle()
 
@@ -466,12 +469,68 @@ const buscarEnMemoriaTool: Tool = {
     // hablando", el otro nada— el modelo puede leerlos como dos ocasiones
     // separadas e inventar que el tema salió dos veces. Compartiendo el mismo
     // marco de fondo, la colisión pasa a ser redundante en vez de contradictoria.
+    //
+    // Paso 3b (diagnóstico de fechas/horas): mismo motivo, un nivel más abajo.
+    // Esta tool devolvía `contenido` sin ninguna fecha mientras `bloqueMemoria`
+    // ya anotaba cada recuerdo con `tiempoRelativo` — la causa 2 del
+    // diagnóstico, reintroducida acá. Reusa la misma función y el mismo formato
+    // de prefijo `(hace N días)` en vez de duplicar la lógica de baldes.
+    const ahora = new Date()
     return {
       ok: true,
       encontrado: true,
-      nota: 'Son fragmentos de conversaciones ANTERIORES, no cosas que el usuario acabe de decir. Si los usás, hablá de ellos como algo que ya pasó.',
-      recuerdos: recuerdos.map((r) => r.contenido),
+      nota:
+        'Son fragmentos de conversaciones ANTERIORES, no cosas que el usuario acabe de decir. Si los usás, hablá de ellos ' +
+        'como algo que ya pasó, y si preguntan CUÁNDO fue, usá lo que dice entre paréntesis al principio de cada uno.',
+      recuerdos: recuerdos.map(
+        (r) => `(${tiempoRelativo(new Date(r.created_at), ahora, settings.zona_horaria)}) ${r.contenido}`,
+      ),
     }
+  },
+}
+
+// --- hora_actual (Paso 4, diagnóstico de fechas/horas, solo Live) ----------
+//
+// La system instruction de Live se fija una sola vez al abrir la sesión
+// (`live/index.ts`, acción `abrir`) y no se puede reescribir mientras dura la
+// conexión — mismo límite estructural que el hallazgo B del diagnóstico de
+// simetría (system instruction congelada en Live, ver también
+// NOTA_APLICAR_ESTILO más arriba, que lo rodea con otro mecanismo). La línea
+// "Al abrir esta conversación era X" del system instruction (`prompt.ts`) es
+// una FOTO de ese momento: en una sesión larga se vuelve vieja, y como no hay
+// forma de reescribir la instruction en caliente, la única vía que sigue viva
+// durante TODA la conexión es una tool — corre server-side en el momento
+// exacto en que se la llama, así que nunca puede quedar desactualizada.
+//
+// Reusa `fechaActual()` (`prompt.ts`) en vez de reimplementar el formato:
+// mismo texto exacto que ya arma la línea fija de apertura, misma zona
+// horaria del usuario, mismo fallback si falta o es inválida.
+//
+// Sin parámetros: no hay nada que el modelo tenga que decidir, sólo cuándo
+// llamarla — eso lo cubre la description y el nudge en INSTRUCCION_ESTILO_VOZ.
+const horaActualTool: Tool = {
+  declaration: {
+    name: 'hora_actual',
+    description:
+      'Devuelve la fecha y hora reales de este momento, en la zona horaria del usuario. Llamala si no estás seguro de qué día o qué ' +
+      'hora es, o si esta conversación ya lleva un buen rato abierta: la fecha que te dijeron al arrancar es una foto de ese momento ' +
+      'y puede haber quedado vieja.',
+    parameters: { type: 'OBJECT', properties: {} },
+  },
+  soloModo: 'live',
+
+  handler: async (_args, ctx) => {
+    const { data: settings, error } = await ctx.supabase
+      .from('ajustes_ia')
+      .select('zona_horaria')
+      .eq('user_id', ctx.userId)
+      .maybeSingle()
+
+    if (error) {
+      console.error('[hora_actual] no se pudo leer la zona horaria:', error.message)
+    }
+
+    return { ahora: fechaActual(settings?.zona_horaria) }
   },
 }
 
@@ -888,6 +947,7 @@ export const TOOLS: Tool[] = [
   recordarHecho,
   olvidarHecho,
   buscarEnMemoriaTool,
+  horaActualTool,
   mostrarEnPantallaTool,
   buscarEnInternetTool,
   buscarRecetasTool,

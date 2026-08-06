@@ -1,0 +1,28 @@
+-- Diagnóstico de confusión de fechas/horas (2026-08-05), Paso 1 del arreglo.
+--
+-- `fechaActual()` (`_shared/prompt.ts`) calculaba "hoy" en UTC fijo, sin zona
+-- del usuario — en México (UTC-6/UTC-5) eso da el día equivocado durante
+-- ~6-7 horas todos los días, no sólo cerca de la medianoche. Acá sólo se
+-- agrega DÓNDE vive la zona horaria real; el Paso 2 conecta esta columna con
+-- `fechaActual()` en las Edge Functions.
+--
+-- Columna en `ajustes_ia`, no en `perfiles`: es la tabla que `ai-chat` y
+-- `live` YA leen sin condición antes de armar la system instruction, así que
+-- sumarla ahí no cuesta una consulta nueva en los dos hot paths (`perfiles`
+-- no se toca en ese camino hoy).
+--
+-- Default `America/Mexico_City` y NOT NULL: es el piso de seguridad para
+-- cualquier fila que no haya pasado todavía por la captura automática del
+-- cliente (login nuevo, fila vieja, fallo de `Intl` en el navegador). El
+-- proyecto es multi-usuario por diseño (ver PLAN_AMBAR.md, "Objetivo"), así
+-- que se agrega una columna editable por fila en vez de hardcodear la zona en
+-- el código — evita tener que repetir esta migración cuando aparezca un
+-- usuario en otro huso. México como default porque hoy es el único usuario
+-- real y es career-neutral respecto al valor que la captura automática va a
+-- pisar en su primer login.
+--
+-- ADD COLUMN con DEFAULT constante + NOT NULL es metadata-only desde
+-- Postgres 11 (no reescribe la tabla): las filas existentes quedan con el
+-- default sin necesidad de un UPDATE aparte.
+alter table public.ajustes_ia
+  add column zona_horaria text not null default 'America/Mexico_City';

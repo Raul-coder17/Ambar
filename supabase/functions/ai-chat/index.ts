@@ -288,7 +288,7 @@ async function callGemini(
 async function cargarHechos(supabase: SupabaseClient, userId: string): Promise<Hecho[]> {
   const { data, error } = await supabase
     .from('memoria_hechos')
-    .select('hecho, categoria')
+    .select('hecho, categoria, updated_at')
     .eq('user_id', userId)
     .order('updated_at', { ascending: false })
 
@@ -366,7 +366,7 @@ Deno.serve(async (req) => {
 
   const { data: settings } = await supabase
     .from('ajustes_ia')
-    .select('ia_habilitada, gemini_api_key_encrypted, cuota_diaria_aprendida, cuota_diaria_aprendida_modelo')
+    .select('ia_habilitada, gemini_api_key_encrypted, cuota_diaria_aprendida, cuota_diaria_aprendida_modelo, zona_horaria')
     .eq('user_id', user.id)
     .maybeSingle()
 
@@ -431,7 +431,8 @@ Deno.serve(async (req) => {
     })(),
   ])
 
-  const systemInstruction = systemInstructionBase() + bloqueMemoria(hechos, recuerdos)
+  const systemInstruction =
+    systemInstructionBase(settings.zona_horaria) + bloqueMemoria(hechos, recuerdos, new Date(), settings.zona_horaria)
   console.log(`[ai-chat] contexto: hechos=${hechos.length} recuerdos=${recuerdos.length} turnos=${contents.length}`)
 
   const declarations = toolDeclarations('texto')

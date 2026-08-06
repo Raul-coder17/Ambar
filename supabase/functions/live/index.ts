@@ -46,7 +46,7 @@
 
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { decryptApiKey } from '../_shared/crypto.ts'
-import { bloqueMemoria, valeGuardarIntercambio, type Hecho } from '../_shared/memoria.ts'
+import { bloqueMemoria, valeGuardarIntercambio, type Hecho, type RecuerdoReciente } from '../_shared/memoria.ts'
 import { systemInstructionLive } from '../_shared/prompt.ts'
 import { guardarIntercambio, recuerdosRecientes } from '../_shared/recuerdos.ts'
 import { findTool, toolDeclarations } from '../_shared/tools.ts'
@@ -157,7 +157,7 @@ function buildSetup(systemInstruction: string) {
 async function cargarHechos(supabase: SupabaseClient, userId: string): Promise<Hecho[]> {
   const { data, error } = await supabase
     .from('memoria_hechos')
-    .select('hecho, categoria')
+    .select('hecho, categoria, updated_at')
     .eq('user_id', userId)
     .order('updated_at', { ascending: false })
 
@@ -287,7 +287,7 @@ Deno.serve(async (req) => {
   if (body.action === 'abrir') {
     const { data: settings } = await supabase
       .from('ajustes_ia')
-      .select('ia_habilitada, gemini_api_key_encrypted')
+      .select('ia_habilitada, gemini_api_key_encrypted, zona_horaria')
       .eq('user_id', user.id)
       .maybeSingle()
 
@@ -356,10 +356,12 @@ Deno.serve(async (req) => {
 
     const [hechos, recientes] = await Promise.all([
       cargarHechos(supabase, user.id),
-      reanudando ? Promise.resolve<string[]>([]) : recuerdosRecientes(supabase, user.id),
+      reanudando ? Promise.resolve<RecuerdoReciente[]>([]) : recuerdosRecientes(supabase, user.id),
     ])
 
-    const systemInstruction = systemInstructionLive() + bloqueMemoria(hechos, [], recientes)
+    const systemInstruction =
+      systemInstructionLive(settings.zona_horaria) +
+      bloqueMemoria(hechos, [], new Date(), settings.zona_horaria, recientes)
 
     const minted = await mintearToken(apiKey, systemInstruction)
 

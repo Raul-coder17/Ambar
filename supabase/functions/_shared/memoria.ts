@@ -21,6 +21,8 @@
 // usuario, no cosas que él haya dicho en este chat. Meterlos como turnos falsos
 // haría que el modelo los cite como si acabaran de decirse.
 
+import { zonaValida } from './zonaHoraria.ts'
+
 export interface MensajeHistorial {
   role: 'user' | 'assistant'
   text: string
@@ -29,11 +31,19 @@ export interface MensajeHistorial {
 export interface Hecho {
   hecho: string
   categoria: string | null
+  updated_at: string
 }
 
 export interface Recuerdo {
   contenido: string
   similitud: number
+  created_at: string
+}
+
+/** Los últimos intercambios recuperados por FECHA (ver `recuerdosRecientes` en recuerdos.ts), no por similitud. */
+export interface RecuerdoReciente {
+  contenido: string
+  created_at: string
 }
 
 /** Cuántos recuerdos como mucho se recuperan por request. */
@@ -179,11 +189,65 @@ export function valeGuardarIntercambio(pregunta: string, respuesta: string): boo
 }
 
 /**
+ * Bucket de día calendario de `fecha`, TAL COMO SE VE en `zona` — reconstruido
+ * como medianoche UTC de esos año/mes/día. Existe para que `tiempoRelativo`
+ * pueda diferenciar "hoy" de "ayer" por CALENDARIO real del usuario, no por
+ * horas transcurridas: un intercambio de las 23:50 de ayer y uno de las 00:10
+ * de hoy sólo difieren 20 minutos, pero tienen que decir "ayer" y "hoy"
+ * respectivamente. `formatToParts` (no el string formateado) es lo que evita
+ * tener que parsear la salida de un locale para sacar año/mes/día.
+ */
+function diaCalendario(fecha: Date, zona: string): number {
+  const partes = new Intl.DateTimeFormat('en-CA', {
+    timeZone: zona,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(fecha)
+  const valor = (tipo: string) => partes.find((p) => p.type === tipo)?.value ?? '1970'
+  return Date.UTC(Number(valor('year')), Number(valor('month')) - 1, Number(valor('day')))
+}
+
+/**
+ * Frase relativa en español para cuándo pasó `fecha`, respecto de `ahora`.
+ *
+ * Es lo que evita que hechos y recuerdos lleguen al modelo sin ningún marco
+ * temporal (causa 2 del diagnóstico de fechas/horas, 2026-08-05): antes se
+ * descartaba `created_at`/`updated_at` incluso donde ya venían calculados
+ * desde la base (el RPC `buscar_memoria_vectorial` siempre devolvió
+ * `created_at`; se pedía y se tiraba al tipar el resultado).
+ *
+ * Los baldes son por DÍA CALENDARIO (ver `diaCalendario`), no por horas
+ * transcurridas, y son puntos de partida sin calibrar contra uso real — mismo
+ * criterio que UMBRAL_SIMILITUD y TURNOS_RECIENTES.
+ */
+export function tiempoRelativo(fecha: Date, ahora: Date, zonaHoraria?: string | null): string {
+  const zona = zonaValida(zonaHoraria)
+  const dias = Math.round((diaCalendario(ahora, zona) - diaCalendario(fecha, zona)) / 86_400_000)
+
+  if (dias <= 0) return 'hoy'
+  if (dias === 1) return 'ayer'
+  if (dias < 7) return `hace ${dias} días`
+  if (dias < 14) return 'la semana pasada'
+  if (dias < 30) return `hace ${Math.floor(dias / 7)} semanas`
+  if (dias < 60) return 'el mes pasado'
+  if (dias < 365) return `hace ${Math.floor(dias / 30)} meses`
+  return 'hace más de un año'
+}
+
+/**
  * El bloque de memoria que se le agrega a la system instruction.
  *
  * Los hechos van con su texto exacto porque es el mismo texto que el modelo
  * tiene que mandar en `reemplaza` cuando uno queda obsoleto (ver
- * `normalizarArgsHecho`): lo que lee es la interfaz para lo que escribe.
+ * `normalizarArgsHecho`): lo que lee es la interfaz para lo que escribe. Por
+ * eso las anotaciones de tiempo de esta función (ver `tiempoRelativo`) van
+ * SIEMPRE en corchetes al final de la línea, nunca mezcladas en el texto del
+ * hecho — y la instrucción de cada sección de hechos le aclara al modelo que
+ * eso es una anotación, no parte del hecho. Es la misma cautela que ya regía
+ * para el sufijo `(categoria)`: el modelo puede copiar la línea entera si no
+ * se le avisa, y `clave()` no matchea contra una línea con anotaciones pegadas
+ * (ver el log de esa rama en tools.ts).
  *
  * Devuelve '' si no hay nada — un encabezado "Lo que sabés del usuario" vacío
  * es peor que nada: le sugiere al modelo que debería saber algo.
@@ -212,16 +276,32 @@ export function valeGuardarIntercambio(pregunta: string, respuesta: string): boo
  * de esta función y no un string que el llamador concatene por su cuenta para
  * que el orden de las secciones —y sobre todo el invariante de que el estilo va
  * último— se siga decidiendo en un solo lugar.
+ *
+ * `ahora` y `zonaHoraria` son explícitos (no `new Date()` interno) para que la
+ * función siga siendo pura y testeable: el "ahora" del cálculo de
+ * `tiempoRelativo` lo decide el llamador, no el reloj del proceso.
  */
-export function bloqueMemoria(hechos: Hecho[], recuerdos: Recuerdo[], recientes: string[] = []): string {
+export function bloqueMemoria(
+  hechos: Hecho[],
+  recuerdos: Recuerdo[],
+  ahora: Date,
+  zonaHoraria: string | null | undefined,
+  recientes: RecuerdoReciente[] = [],
+): string {
   const partes: string[] = []
   const estilo = hechos.filter(esHechoDeEstilo)
   const generales = hechos.filter((h) => !esHechoDeEstilo(h))
 
   if (generales.length > 0) {
-    const lineas = generales.map((h) => (h.categoria ? `- ${h.hecho} (${h.categoria})` : `- ${h.hecho}`))
+    const lineas = generales.map((h) => {
+      const categoria = h.categoria ? ` (${h.categoria})` : ''
+      const cuando = tiempoRelativo(new Date(h.updated_at), ahora, zonaHoraria)
+      return `- ${h.hecho}${categoria} [${cuando}]`
+    })
     partes.push(
-      `Esto es lo que ya sabés del usuario. Usalo con naturalidad cuando venga al caso; no lo recites ni le avises que lo tenés anotado.\n${lineas.join('\n')}`,
+      'Esto es lo que ya sabés del usuario. Usalo con naturalidad cuando venga al caso; no lo recites ni le avises que lo tenés anotado. ' +
+        'Si llamás a recordar_hecho (con `reemplaza`) o a olvidar_hecho sobre alguno de estos, pasá SÓLO el texto del hecho: lo que va entre paréntesis y corchetes al final de la línea es una anotación para vos, no parte del hecho.\n' +
+        lineas.join('\n'),
     )
   }
 
@@ -233,14 +313,18 @@ export function bloqueMemoria(hechos: Hecho[], recuerdos: Recuerdo[], recientes:
   // acaba de escribir cuando todavía no escribió nada. Tienen su propia
   // sección más abajo.
   if (recuerdos.length > 0) {
-    const lineas = recuerdos.map((r) => `- ${r.contenido.trim()}`)
+    const lineas = recuerdos.map(
+      (r) => `- (${tiempoRelativo(new Date(r.created_at), ahora, zonaHoraria)}) ${r.contenido.trim()}`,
+    )
     partes.push(
-      `Fragmentos de conversaciones ANTERIORES con este usuario que se parecen a lo que acaba de escribir. Son recuerdos tuyos, no cosas que se hayan dicho recién: si los usás, hablá de ellos como algo que pasó antes. Si no vienen al caso, ignoralos.\n${lineas.join('\n')}`,
+      `Fragmentos de conversaciones ANTERIORES con este usuario que se parecen a lo que acaba de escribir. Son recuerdos tuyos, no cosas que se hayan dicho recién: si los usás, hablá de ellos como algo que pasó antes, y si preguntan CUÁNDO fue, usá lo que dice entre paréntesis. Si no vienen al caso, ignoralos.\n${lineas.join('\n')}`,
     )
   }
 
   if (recientes.length > 0) {
-    const lineas = recientes.map((c) => `- ${c.trim()}`)
+    const lineas = recientes.map(
+      (r) => `- (${tiempoRelativo(new Date(r.created_at), ahora, zonaHoraria)}) ${r.contenido.trim()}`,
+    )
     partes.push(
       'Así venía la última conversación con este usuario, de lo más viejo a lo más reciente. Son recuerdos de charlas ANTERIORES, no cosas que se hayan dicho en ésta: si las traés a la charla, hablá de ellas como algo que ya pasó. ' +
         `Sirven para retomar el hilo; si el usuario arranca con otro tema, ignoralas.\n${lineas.join('\n')}`,
@@ -252,11 +336,14 @@ export function bloqueMemoria(hechos: Hecho[], recuerdos: Recuerdo[], recientes:
     // categoría es siempre "estilo" y no aporta nada, y además el sufijo es una
     // de las dos formas conocidas de romper el contrato de string exacto de
     // `olvidar_hecho`/`reemplaza` (el modelo copia la línea entera, categoría
-    // incluida, y `clave()` no matchea). Ver el log de esa rama en tools.ts.
-    const lineas = estilo.map((h) => `- ${h.hecho}`)
+    // incluida, y `clave()` no matchea). Ver el log de esa rama en tools.ts. El
+    // corchete de tiempo SÍ va (misma utilidad que en la lista general), con el
+    // mismo aviso explícito en la instrucción de abajo.
+    const lineas = estilo.map((h) => `- ${h.hecho} [${tiempoRelativo(new Date(h.updated_at), ahora, zonaHoraria)}]`)
     partes.push(
       'Así te pidió el usuario que le hables. Son instrucciones suyas sobre CÓMO responder y tienen prioridad sobre tus reglas de estilo por defecto: si algo dicho antes contradice a una de éstas, gana ésta. ' +
-        `Obedecelas en cada respuesta, incluida la próxima; no las recites ni le avises que las tenés anotadas.\n${lineas.join('\n')}`,
+        'Obedecelas en cada respuesta, incluida la próxima; no las recites ni le avises que las tenés anotadas. Si usás olvidar_hecho sobre alguna, pasá sólo el texto antes del corchete.\n' +
+        lineas.join('\n'),
     )
   }
 

@@ -10,6 +10,7 @@
 // charla y lo arma `bloqueMemoria()` (memoria.ts) por request/por sesión.
 
 import { CATEGORIA_ESTILO } from './memoria.ts'
+import { zonaValida } from './zonaHoraria.ts'
 
 // Base fija de la personalidad.
 //
@@ -53,15 +54,39 @@ export const SYSTEM_INSTRUCTION_BASE =
   'haya gustado, usalo para armar la búsqueda con buscar_peliculas_series en vez de preguntarle de nuevo qué le gusta. ' +
   'Preguntá sólo si no tenés nada guardado que sirva.'
 
-// Fecha del servidor en el momento del request, en español. Sin esto el
-// modelo asume el año de su corte de entrenamiento y puede, por ejemplo,
-// buscar o razonar sobre "el año actual" equivocado.
-export function fechaActual(): string {
-  return new Date().toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
+/**
+ * Fecha, día de la semana y hora del momento del request, en la ZONA HORARIA
+ * REAL del usuario (`ajustes_ia.zona_horaria`, con fallback si falta o es
+ * inválida — ver `zonaValida`). Sin esto el modelo asume el año de su corte
+ * de entrenamiento y puede, por ejemplo, buscar o razonar sobre "el año
+ * actual" equivocado.
+ *
+ * Hasta el diagnóstico de 2026-08-05 esto se calculaba en UTC fijo y sin
+ * hora: un usuario en México (UTC-6) veía el DÍA equivocado durante 6-7 horas
+ * todos los días (no sólo cerca de la medianoche), y "¿qué hora es?" no tenía
+ * de dónde salir — nunca se mandaba ninguna hora en absoluto.
+ */
+export function fechaActual(zonaHoraria?: string | null): string {
+  const zona = zonaValida(zonaHoraria)
+  const ahora = new Date()
+  const fecha = ahora.toLocaleDateString('es-AR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: zona,
+  })
+  const hora = ahora.toLocaleTimeString('es-AR', { hour: 'numeric', minute: '2-digit', timeZone: zona })
+  return `${fecha}, y son las ${hora}`
 }
 
-export function systemInstructionBase(): string {
-  return `${SYSTEM_INSTRUCTION_BASE}\n\nHoy es ${fechaActual()}.`
+/** La sentencia de fecha con distinta intro según el modo — ver `systemInstructionLive`. */
+function lineaFecha(zonaHoraria: string | null | undefined, intro: string): string {
+  return `${intro} ${fechaActual(zonaHoraria)}.`
+}
+
+export function systemInstructionBase(zonaHoraria?: string | null): string {
+  return `${SYSTEM_INSTRUCTION_BASE}\n\n${lineaFecha(zonaHoraria, 'Hoy es')}`
 }
 
 // Lo que se le agrega SOLO en modo Live (Fase 4). La base de arriba está
@@ -96,9 +121,24 @@ export const INSTRUCCION_ESTILO_VOZ =
   'o un nombre, proyecto o persona que menciona como si ya lo conocieras. Que no esté en la lista de lo que sabés de ' +
   'él no significa que no lo hayan hablado — significa que hay que buscarlo. Decir "no me acuerdo" sin haber buscado ' +
   'es un error. No la uses para lo que ya está en esa lista (para eso no hace falta buscar) ni como sustituto de ' +
-  'recordar_hecho u olvidar_hecho: buscar_en_memoria sólo consulta, nunca guarda ni borra nada.'
+  'recordar_hecho u olvidar_hecho: buscar_en_memoria sólo consulta, nunca guarda ni borra nada.\n\n' +
+  'Llamá a hora_actual si no estás segura de qué día o qué hora es en este momento, o si esta conversación ya lleva un ' +
+  'buen rato abierta: la fecha de arriba ("Al abrir esta conversación era...") es una foto de cuando arrancó la charla, ' +
+  'no algo que se actualice sola, y en una sesión larga puede haber quedado vieja. Llamala antes de decir la fecha o la ' +
+  'hora actual, o de calcular cuánto falta o cuánto pasó para algo — no lo calcules de memoria contra la fecha de apertura.'
 
-/** System instruction del modo Live: la misma base, más el estilo hablado. */
-export function systemInstructionLive(): string {
-  return `${systemInstructionBase()}\n\n${INSTRUCCION_ESTILO_VOZ}`
+/**
+ * System instruction del modo Live: la misma base, más el estilo hablado.
+ *
+ * La línea de fecha NO dice "Hoy es X" como en texto — dice "Al abrir esta
+ * conversación era X". No es cosmético: esta system instruction se fija una
+ * sola vez al mintear el token y no se puede reescribir mientras dura la
+ * conexión (hallazgo B del diagnóstico de simetría), así que en una sesión
+ * larga ese dato queda viejo. La frase deja explícito que es una FOTO del
+ * momento de apertura, no una verdad constante — la tool `hora_actual`
+ * (`tools.ts`) es la vía que sigue viva el resto de la sesión, con su nudge
+ * en `INSTRUCCION_ESTILO_VOZ`.
+ */
+export function systemInstructionLive(zonaHoraria?: string | null): string {
+  return `${SYSTEM_INSTRUCTION_BASE}\n\n${lineaFecha(zonaHoraria, 'Al abrir esta conversación era')}\n\n${INSTRUCCION_ESTILO_VOZ}`
 }

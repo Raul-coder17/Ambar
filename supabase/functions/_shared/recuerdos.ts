@@ -33,6 +33,7 @@ import {
   TOP_K,
   UMBRAL_SIMILITUD,
   type Recuerdo,
+  type RecuerdoReciente,
 } from './memoria.ts'
 import { generarEmbedding, vectorLiteral } from './embeddings.ts'
 
@@ -90,13 +91,13 @@ export async function recuerdosRecientes(
   supabase: SupabaseClient,
   userId: string,
   limite = RECUERDOS_RECIENTES,
-): Promise<string[]> {
+): Promise<RecuerdoReciente[]> {
   // El `user_id` explícito es redundante con RLS (el cliente se construye con
   // el JWT del usuario), igual que en `cargarHechos`: mismo criterio de no
   // depender de una sola capa para el aislamiento entre usuarios.
   const { data, error } = await supabase
     .from('memoria_vectorial')
-    .select('contenido')
+    .select('contenido, created_at')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
     .limit(limite)
@@ -107,8 +108,11 @@ export async function recuerdosRecientes(
   }
 
   return (data ?? [])
-    .map((fila) => (fila.contenido as string | null)?.trim() ?? '')
-    .filter((contenido) => contenido.length > 0)
+    .map((fila) => ({
+      contenido: (fila.contenido as string | null)?.trim() ?? '',
+      created_at: fila.created_at as string,
+    }))
+    .filter((r) => r.contenido.length > 0)
     .reverse()
 }
 

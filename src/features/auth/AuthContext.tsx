@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase'
+import { capturarZonaHorariaSiHaceFalta } from '../../lib/zonaHoraria'
 
 interface AuthContextValue {
   session: Session | null
@@ -25,6 +26,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => subscription.subscription.unsubscribe()
   }, [])
+
+  // Sólo depende del user id (no de `session` entera): un refresh de token
+  // trae una sesión nueva para el MISMO usuario y no tiene que re-disparar
+  // esto. Best-effort y en segundo plano — no bloquea el render de la app.
+  useEffect(() => {
+    if (!session?.user.id) return
+    capturarZonaHorariaSiHaceFalta(session.user.id)
+  }, [session?.user.id])
 
   return <AuthContext.Provider value={{ session, loading }}>{children}</AuthContext.Provider>
 }
