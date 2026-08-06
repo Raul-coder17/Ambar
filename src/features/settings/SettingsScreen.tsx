@@ -23,21 +23,26 @@ export function SettingsScreen() {
   const { session } = useAuth()
   const [iaHabilitada, setIaHabilitada] = useState(false)
   const [tavilyConfigurada, setTavilyConfigurada] = useState(false)
+  const [jinaConfigurada, setJinaConfigurada] = useState(false)
   const [spoonacularConfigurada, setSpoonacularConfigurada] = useState(false)
   const [tmdbConfigurada, setTmdbConfigurada] = useState(false)
   const [loadingEstado, setLoadingEstado] = useState(true)
   const [apiKey, setApiKey] = useState('')
   const [tavilyKey, setTavilyKey] = useState('')
+  const [jinaKey, setJinaKey] = useState('')
   const [spoonacularKey, setSpoonacularKey] = useState('')
   const [tmdbKey, setTmdbKey] = useState('')
   const [saving, setSaving] = useState(false)
   const [savingTavily, setSavingTavily] = useState(false)
+  const [savingJina, setSavingJina] = useState(false)
   const [savingSpoonacular, setSavingSpoonacular] = useState(false)
   const [savingTmdb, setSavingTmdb] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [info, setInfo] = useState<string | null>(null)
   const [tavilyError, setTavilyError] = useState<string | null>(null)
   const [tavilyInfo, setTavilyInfo] = useState<string | null>(null)
+  const [jinaError, setJinaError] = useState<string | null>(null)
+  const [jinaInfo, setJinaInfo] = useState<string | null>(null)
   const [spoonacularError, setSpoonacularError] = useState<string | null>(null)
   const [spoonacularInfo, setSpoonacularInfo] = useState<string | null>(null)
   const [tmdbError, setTmdbError] = useState<string | null>(null)
@@ -72,13 +77,16 @@ export function SettingsScreen() {
     async function load() {
       const { data } = await supabase
         .from('ajustes_ia')
-        .select('ia_habilitada, tavily_api_key_encrypted, spoonacular_api_key_encrypted, tmdb_api_key_encrypted')
+        .select(
+          'ia_habilitada, tavily_api_key_encrypted, jina_api_key_encrypted, spoonacular_api_key_encrypted, tmdb_api_key_encrypted',
+        )
         .eq('user_id', session!.user.id)
         .maybeSingle()
 
       if (!cancelled) {
         setIaHabilitada(Boolean(data?.ia_habilitada))
         setTavilyConfigurada(Boolean(data?.tavily_api_key_encrypted))
+        setJinaConfigurada(Boolean(data?.jina_api_key_encrypted))
         setSpoonacularConfigurada(Boolean(data?.spoonacular_api_key_encrypted))
         setTmdbConfigurada(Boolean(data?.tmdb_api_key_encrypted))
         setLoadingEstado(false)
@@ -179,6 +187,51 @@ export function SettingsScreen() {
 
     setTavilyConfigurada(Boolean(data?.tavily_habilitada))
     setTavilyInfo('Clave de Tavily quitada.')
+  }
+
+  async function handleSaveJina(e: FormEvent) {
+    e.preventDefault()
+    if (!jinaKey.trim() || savingJina) return
+
+    setSavingJina(true)
+    setJinaError(null)
+    setJinaInfo(null)
+
+    const { data, error } = await supabase.functions.invoke('manage-ai-key', {
+      body: { action: 'save', apiKey: jinaKey.trim(), provider: 'jina' },
+    })
+
+    setSavingJina(false)
+
+    if (error) {
+      setJinaError(await mensajeDeError(error, 'No se pudo guardar la key de Jina.'))
+      return
+    }
+
+    setJinaConfigurada(Boolean(data?.jina_habilitada))
+    setJinaKey('')
+    setJinaInfo('Clave de Jina guardada correctamente.')
+  }
+
+  async function handleRemoveJina() {
+    if (savingJina) return
+    setSavingJina(true)
+    setJinaError(null)
+    setJinaInfo(null)
+
+    const { data, error } = await supabase.functions.invoke('manage-ai-key', {
+      body: { action: 'remove', provider: 'jina' },
+    })
+
+    setSavingJina(false)
+
+    if (error) {
+      setJinaError(await mensajeDeError(error, 'No se pudo quitar la key de Jina.'))
+      return
+    }
+
+    setJinaConfigurada(Boolean(data?.jina_habilitada))
+    setJinaInfo('Clave de Jina quitada.')
   }
 
   async function handleSaveSpoonacular(e: FormEvent) {
@@ -510,6 +563,69 @@ export function SettingsScreen() {
 
       {tavilyError && <p className="-mt-3 text-sm text-red-400">{tavilyError}</p>}
       {tavilyInfo && <p className="-mt-3 text-sm text-sage">{tavilyInfo}</p>}
+
+      <div className="border-t border-border-soft pt-2">
+        <h2 className="font-display text-base font-semibold text-ink">Lectura de páginas</h2>
+        <p className="mt-1 text-sm text-ink-muted">
+          Opcional: Ámbar ya puede leer el contenido completo de un link (por ejemplo, uno que
+          encontró buscando en internet) sin ninguna key, con un límite gratis más bajo. Guardá tu
+          propia API key de Jina Reader si querés un límite más alto. Se cifra antes de guardarse,
+          igual que las demás.
+        </p>
+      </div>
+
+      <div className="rounded-card border border-border-soft bg-surface p-4">
+        <p className="text-sm text-ink">
+          Estado:{' '}
+          {loadingEstado ? (
+            <span className="text-ink-muted">cargando…</span>
+          ) : jinaConfigurada ? (
+            <span className="text-sage">configurada</span>
+          ) : (
+            <span className="text-ink-muted">no configurada (usando el límite gratis)</span>
+          )}
+        </p>
+      </div>
+
+      <form
+        onSubmit={handleSaveJina}
+        className="flex flex-col gap-3 rounded-card border border-border-soft bg-surface p-4"
+      >
+        <label htmlFor="jina-key" className="text-sm text-ink-soft">
+          API key de Jina Reader
+        </label>
+        <input
+          id="jina-key"
+          type="password"
+          value={jinaKey}
+          onChange={(e) => setJinaKey(e.target.value)}
+          placeholder="jina_..."
+          autoComplete="off"
+          className="rounded-input border border-border-soft bg-surface-raised px-3 py-2 text-[16px] leading-5 text-ink outline-none placeholder:text-ink-muted focus:border-amber"
+        />
+        <div className="flex gap-2">
+          <button
+            type="submit"
+            disabled={savingJina || !jinaKey.trim()}
+            className="rounded-pill bg-amber px-4 py-2 text-sm font-medium text-ink-inverse disabled:opacity-50"
+          >
+            {savingJina ? 'Guardando…' : 'Guardar clave'}
+          </button>
+          {jinaConfigurada && (
+            <button
+              type="button"
+              onClick={handleRemoveJina}
+              disabled={savingJina}
+              className="rounded-input border border-amber px-4 py-2 text-sm text-amber-soft disabled:opacity-50"
+            >
+              Quitar
+            </button>
+          )}
+        </div>
+      </form>
+
+      {jinaError && <p className="-mt-3 text-sm text-red-400">{jinaError}</p>}
+      {jinaInfo && <p className="-mt-3 text-sm text-sage">{jinaInfo}</p>}
 
       <div className="border-t border-border-soft pt-2">
         <h2 className="font-display text-base font-semibold text-ink">Recetas y nutrición</h2>

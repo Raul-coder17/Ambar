@@ -1,31 +1,34 @@
 // Edge Function: manage-ai-key
 //
 // Guarda/borra las API keys BYOK del usuario autenticado (Gemini, Tavily, y
-// desde el backlog adelantado también Spoonacular y TMDB) en `ajustes_ia`.
-// Ninguna key se persiste en texto plano: se cifra con AES-GCM (secret
-// `AI_KEY_ENCRYPTION_SECRET`, definido como secret de proyecto) antes de
-// escribirla. Ninguna respuesta de esta función devuelve una key, ni en texto
-// plano ni cifrada.
+// desde el backlog adelantado también Spoonacular, TMDB y Jina Reader) en
+// `ajustes_ia`. Ninguna key se persiste en texto plano: se cifra con AES-GCM
+// (secret `AI_KEY_ENCRYPTION_SECRET`, definido como secret de proyecto) antes
+// de escribirla. Ninguna respuesta de esta función devuelve una key, ni en
+// texto plano ni cifrada.
 //
-// `provider` ('gemini' | 'tavily' | 'spoonacular' | 'tmdb', default 'gemini'
-// por compatibilidad con el cliente de Fase 1) decide qué columna se toca.
-// Sólo Gemini controla `ia_habilitada` (gatea si el chat corre en absoluto);
-// las otras tres son aditivas — cada tool chequea directamente si su columna
-// es NULL, y guardar/borrar su key nunca toca `gemini_api_key_encrypted` ni
-// `ia_habilitada` (el upsert de cada provider sólo lista sus propias
-// columnas).
+// `provider` ('gemini' | 'tavily' | 'spoonacular' | 'tmdb' | 'jina', default
+// 'gemini' por compatibilidad con el cliente de Fase 1) decide qué columna se
+// toca. Sólo Gemini controla `ia_habilitada` (gatea si el chat corre en
+// absoluto); las demás son aditivas — cada tool chequea directamente si su
+// columna es NULL, y guardar/borrar su key nunca toca
+// `gemini_api_key_encrypted` ni `ia_habilitada` (el upsert de cada provider
+// sólo lista sus propias columnas).
 //
-// VALIDAR AL GUARDAR: no es lo mismo para las cuatro.
+// VALIDAR AL GUARDAR: no es lo mismo para los cinco.
 //   - gemini: valida contra GET /v1beta/models (gratis, sin cuota de por medio).
 //   - tmdb: valida contra GET /3/authentication (igual de gratis — TMDB no
 //     tiene cuota por puntos, sólo rate-limiting, así que probar la key no
 //     cuesta nada real).
-//   - tavily y spoonacular: NO se validan al guardar. Ninguna de las dos tiene
-//     un endpoint de "solo probar la key" sin gastar una unidad de cuota real
-//     (búsqueda o receta), y en las dos el free tier es limitado (~1000/mes
-//     Tavily, 150 puntos/día Spoonacular) como para pagarlo sólo por validar.
-//     Si la key es inválida, la tool correspondiente lo va a reportar con un
-//     mensaje claro la primera vez que se use de verdad.
+//   - tavily, spoonacular y jina: NO se validan al guardar. Ninguna tiene un
+//     endpoint de "solo probar la key" sin gastar una unidad de cuota real
+//     (búsqueda, receta o lectura), y las tres tienen free tier limitado
+//     (~1000/mes Tavily, 150 puntos/día Spoonacular, 20 RPM Jina sin key vs.
+//     200 RPM con key gratis). Si la key es inválida, la tool correspondiente
+//     lo va a reportar con un mensaje claro la primera vez que se use de
+//     verdad. Jina además es la única de las cinco donde NO tener key no es
+//     un error en absoluto: la tool sigue funcionando igual, sólo con el
+//     límite más bajo del tier sin key.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -113,7 +116,7 @@ Deno.serve(async (req) => {
   }
 
   const provider =
-    body.provider === 'tavily' || body.provider === 'spoonacular' || body.provider === 'tmdb'
+    body.provider === 'tavily' || body.provider === 'spoonacular' || body.provider === 'tmdb' || body.provider === 'jina'
       ? body.provider
       : 'gemini'
 
@@ -123,17 +126,19 @@ Deno.serve(async (req) => {
     tavily: 'tavily_api_key_encrypted',
     spoonacular: 'spoonacular_api_key_encrypted',
     tmdb: 'tmdb_api_key_encrypted',
+    jina: 'jina_api_key_encrypted',
   }
   // Nombre de la flag que devuelve el body de respuesta (además de `ok`), para
   // que el cliente sepa qué estado reflejar sin tener que adivinar por
   // provider. `gemini` es la única con una flag real en la tabla
-  // (`ia_habilitada`); las otras tres son sintéticas (true al guardar, false
-  // al borrar) porque no tienen columna de habilitación propia.
+  // (`ia_habilitada`); las demás son sintéticas (true al guardar, false al
+  // borrar) porque no tienen columna de habilitación propia.
   const FLAG: Record<typeof provider, string> = {
     gemini: 'ia_habilitada',
     tavily: 'tavily_habilitada',
     spoonacular: 'spoonacular_habilitada',
     tmdb: 'tmdb_habilitada',
+    jina: 'jina_habilitada',
   }
 
   if (body.action === 'save') {

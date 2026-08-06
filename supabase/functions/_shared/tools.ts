@@ -24,6 +24,7 @@
 import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { decryptApiKey } from './crypto.ts'
 import { generarEmbedding } from './embeddings.ts'
+import { leerPagina } from './jinaReader.ts'
 import { CATEGORIA_ESTILO, clave, esHechoDeEstilo, MAX_LARGO_HECHO, normalizarArgsHecho, tiempoRelativo } from './memoria.ts'
 import { FRECUENCIAS, MAX_LARGO_DESCRIPCION, NOMBRE_FRECUENCIA, normalizarArgsObjetivo } from './objetivos.ts'
 import { MAX_LARGO_PIZARRA, normalizarArgsPizarra } from './pizarra.ts'
@@ -712,6 +713,63 @@ const buscarEnInternetTool: Tool = {
   },
 }
 
+// --- leer_pagina (Jina Reader) ----------------------------------------------
+//
+// Mismo patrón BYOK que buscar_en_internet, con una diferencia: la key es
+// OPCIONAL de verdad, no sólo "aditiva" como Spoonacular/TMDB. Jina Reader
+// funciona sin key en su tier gratis (con un límite más bajo); el handler
+// pasa `null` cuando el usuario no configuró una, y `leerPagina` decide ahí
+// si manda el header `Authorization` o no.
+const leerPaginaTool: Tool = {
+  declaration: {
+    name: 'leer_pagina',
+    description:
+      'Lee el contenido completo de una página web a partir de su URL. Úsala cuando necesites el texto completo de un link, ' +
+      'ya sea que te lo pasó el usuario o que salió de buscar_en_internet.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        url: {
+          type: 'STRING',
+          description: 'La URL completa de la página a leer (con http:// o https://).',
+        },
+      },
+      required: ['url'],
+    },
+  },
+
+  handler: async (args, ctx) => {
+    const url = typeof args.url === 'string' ? args.url.trim() : ''
+    if (!url) {
+      return { ok: false, error: 'No se especificó qué URL leer.' }
+    }
+
+    const { data: settings, error } = await ctx.supabase
+      .from('ajustes_ia')
+      .select('jina_api_key_encrypted')
+      .eq('user_id', ctx.userId)
+      .maybeSingle()
+
+    if (error) {
+      console.error('[leer_pagina] no se pudo leer la key de Jina:', error.message)
+      return { ok: false, error: 'No pude acceder a la configuración de lectura de páginas en este momento.' }
+    }
+
+    const encrypted = settings?.jina_api_key_encrypted
+    let apiKey: string | null = null
+    if (encrypted) {
+      try {
+        apiKey = await decryptApiKey(encrypted, ctx.encryptionSecret)
+      } catch (err) {
+        console.error('[leer_pagina] no se pudo descifrar la key:', err instanceof Error ? err.message : err)
+        return { ok: false, error: 'No pude leer tu key de Jina. Volvé a guardarla en Ajustes.' }
+      }
+    }
+
+    return await leerPagina(apiKey, url)
+  },
+}
+
 // --- buscar_recetas (Spoonacular, backlog adelantado) -----------------------
 //
 // Mismo patrón BYOK que buscar_en_internet: key propia del usuario, cifrada en
@@ -950,6 +1008,7 @@ export const TOOLS: Tool[] = [
   horaActualTool,
   mostrarEnPantallaTool,
   buscarEnInternetTool,
+  leerPaginaTool,
   buscarRecetasTool,
   buscarPeliculasSeriesTool,
   crearObjetivoTool,
